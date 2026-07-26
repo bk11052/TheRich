@@ -3,6 +3,7 @@
 증권/투자 계좌는 Phase 2에서 토스 API가 balance 를 자동 갱신하면 그대로 반영된다.
 """
 
+import calendar
 from datetime import date
 
 from sqlmodel import Session, select
@@ -69,6 +70,29 @@ def compute_current(session: Session) -> dict:
         "by_type": by_type,
         "by_account": by_account,
     }
+
+
+def month_end(d: date) -> date:
+    """해당 월의 마지막 날. 스냅샷은 항상 월말 날짜로 저장(월 1개)."""
+    last = calendar.monthrange(d.year, d.month)[1]
+    return date(d.year, d.month, last)
+
+
+def ensure_month_snapshot(session: Session, today: date | None = None) -> bool:
+    """이번 달 스냅샷이 하나도 없으면 월말 날짜로 캡처. 캡처했으면 True.
+
+    서버 시작 시 호출 — 24/7이 아닌 환경에서 '말일에 서버가 꺼져 있어 스냅샷을
+    통째로 놓치는' 구멍을 메운다. 이미 있으면 건드리지 않음.
+    """
+    today = today or date.today()
+    month_start = date(today.year, today.month, 1)
+    exists = session.exec(
+        select(NetWorthSnapshot).where(NetWorthSnapshot.snapshot_date >= month_start)
+    ).first()
+    if exists:
+        return False
+    capture_snapshot(session, month_end(today))
+    return True
 
 
 def capture_snapshot(session: Session, snapshot_date: date) -> NetWorthSnapshot:

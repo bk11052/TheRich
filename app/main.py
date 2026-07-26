@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,8 +18,21 @@ from app.api import (
     transactions,
 )
 from app.config import settings
+from app.scheduler import start_scheduler
 
-app = FastAPI(title=settings.app_name)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 순자산 자동 스냅샷 스케줄러 시작 (백엔드 실행 중에만 동작)
+    scheduler = start_scheduler()
+    app.state.scheduler = scheduler
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 # 로컬 개발용 CORS: Next.js dev 서버(3000)에서 API 호출 허용.
 # 단일 사용자 로컬 앱이라 우선 localhost 계열을 폭넓게 허용.
