@@ -168,3 +168,77 @@ class NetWorthSnapshotRead(SQLModel):
     total_liabilities: int
     net_worth: int
     created_at: datetime
+
+
+# ---------- Lifelog: Tag ----------
+class TagCreate(SQLModel):
+    name: str
+    color: str | None = None
+
+
+class TagRead(SQLModel):
+    id: int
+    name: str
+    color: str | None = None
+
+
+class TagUpdate(SQLModel):
+    name: str | None = None
+    color: str | None = None
+
+
+# ---------- Lifelog: Place ----------
+class PlaceCreate(SQLModel):
+    name: str
+    region: str | None = None
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    kakao_place_id: str | None = None
+
+
+class PlaceRead(SQLModel):
+    id: int
+    name: str
+    region: str | None = None
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    kakao_place_id: str | None = None
+    created_at: datetime
+
+
+class PlaceUpdate(SQLModel):
+    name: str | None = None
+    region: str | None = None
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    kakao_place_id: str | None = None
+
+
+# ---------- Lifelog: Photo ----------
+class PhotoRead(SQLModel):
+    id: int
+    transaction_id: int | None = None
+    file_path: str  # 공개 경로 "/uploads/<파일명>"
+    taken_at: datetime | None = None
+    created_at: datetime
+
+
+# ---------- Lifelog: Record (사진·장소·태그로 보강된 거래) ----------
+class TransactionTagsSet(SQLModel):
+    tag_ids: list[int]
+
+
+class RecordRead(SQLModel):
+    id: int  # transaction id
+    type: TxnType
+    amount: int
+    occurred_at: datetime
+    merchant: str | None = None
+    memo: str | None = None
+    category_id: int | None = None
+    place: PlaceRead | None = None
+    photos: list[PhotoRead] = []
+    tags: list[TagRead] = []

@@ -7,12 +7,14 @@
 
 import random
 from datetime import date, datetime
+from pathlib import Path
 
 from sqlmodel import Session, select
 
 from app.db import engine
 from app.models.base import AccountSide, AccountType, TxnSource, TxnType
 from app.models.core import Account, Budget, Category, NetWorthSnapshot, Transaction
+from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.services.classify import classify
 
 # 데모 기준 월 (오늘=2026-07-26 가정). 결정적 재현을 위해 고정.
@@ -88,6 +90,7 @@ def seed_demo() -> None:
 
         if session.exec(select(Transaction)).first():
             print("거래가 이미 존재 — 계좌/거래/예산 시드 건너뜀")
+            _seed_lifelog()
             return
 
         # --- 계좌 ---
@@ -159,6 +162,109 @@ def seed_demo() -> None:
         session.commit()
         print(f"accounts: +{len(accounts)}  transactions: +{n_txn}  budgets: +{n_budget}")
         print(f"기준월: {month_str}")
+
+    _seed_lifelog()
+
+
+# 기록(라이프로그) 데모: 태그·장소·사진을 일부 거래에 연결. Tag 존재 시 스킵(idempotent).
+LIFELOG_TAGS = [
+    ("회식", "#f59e0b"),
+    ("데이트", "#ec4899"),
+    ("가족", "#3b82f6"),
+    ("혼밥", "#10b981"),
+]
+
+
+def _placeholder_svg(text: str, color: str) -> str:
+    """실제 업로드 전 데모용 이미지(단색+상호명). 브라우저 <img>로 렌더됨."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600">'
+        f'<rect width="100%" height="100%" fill="{color}"/>'
+        '<text x="50%" y="52%" font-size="40" fill="#ffffff" text-anchor="middle" '
+        f'font-family="-apple-system,sans-serif">{text}</text></svg>'
+    )
+
+
+def _seed_lifelog() -> None:
+    upload_dir = Path("uploads")
+    with Session(engine) as session:
+        if session.exec(select(Tag)).first():
+            print("태그가 이미 존재 — 기록 시드 건너뜀")
+            return
+
+        tags = {name: Tag(name=name, color=color) for name, color in LIFELOG_TAGS}
+        for t in tags.values():
+            session.add(t)
+        session.commit()
+        for t in tags.values():
+            session.refresh(t)
+
+        def find_txn(kw: str) -> Transaction | None:
+            return session.exec(
+                select(Transaction)
+                .where(Transaction.merchant.contains(kw))  # type: ignore[attr-defined]
+                .order_by(Transaction.occurred_at.desc())
+            ).first()
+
+        def add_place(**kw) -> Place:
+            p = Place(**kw)
+            session.add(p)
+            session.commit()
+            session.refresh(p)
+            return p
+
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        n_place = n_photo = n_link = 0
+
+        # 1) 삼겹살 회식 — 장소 + 회식·가족 태그 + 사진
+        t1 = find_txn("삼겹살")
+        if t1:
+            p = add_place(name="성수동 삼겹살", region="성수동", address="서울 성동구 성수이로")
+            n_place += 1
+            t1.place_id = p.id
+            t1.memo = "가족 외식"
+            session.add(t1)
+            for name in ("회식", "가족"):
+                session.add(TransactionTag(transaction_id=t1.id, tag_id=tags[name].id))
+                n_link += 1
+            fname = "demo-samgyup.svg"
+            (upload_dir / fname).write_text(
+                _placeholder_svg("성수동 삼겹살", "#b1442e"), encoding="utf-8"
+            )
+            session.add(Photo(transaction_id=t1.id, file_path=f"/uploads/{fname}"))
+            n_photo += 1
+
+        # 2) 스타벅스 — 장소 + 혼밥 태그 + 사진
+        t2 = find_txn("스타벅스")
+        if t2:
+            p = add_place(name="스타벅스 강남점", region="강남")
+            n_place += 1
+            t2.place_id = p.id
+            session.add(t2)
+            session.add(TransactionTag(transaction_id=t2.id, tag_id=tags["혼밥"].id))
+            n_link += 1
+            fname = "demo-coffee.svg"
+            (upload_dir / fname).write_text(
+                _placeholder_svg("스타벅스 강남", "#3f7d5a"), encoding="utf-8"
+            )
+            session.add(Photo(transaction_id=t2.id, file_path=f"/uploads/{fname}"))
+            n_photo += 1
+
+        # 3) 이마트 — 장소 + 가족 태그 (사진 없음: mixed 상태 데모)
+        t3 = find_txn("이마트")
+        if t3:
+            p = add_place(name="이마트 성수점", region="성수동")
+            n_place += 1
+            t3.place_id = p.id
+            session.add(t3)
+            session.add(TransactionTag(transaction_id=t3.id, tag_id=tags["가족"].id))
+            n_link += 1
+
+        session.commit()
+        print(
+            f"lifelog: tags +{len(tags)}  places +{n_place}  "
+            f"photos +{n_photo}  tag-links +{n_link}"
+        )
 
 
 if __name__ == "__main__":

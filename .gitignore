@@ -4,6 +4,7 @@ __pycache__/
 venv/
 *.db
 .env
+uploads/
 .DS_Store
 .pytest_cache/
 .ruff_cache/

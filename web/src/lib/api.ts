@@ -218,6 +218,20 @@ export const createTransaction = (payload: TransactionCreate) =>
     body: JSON.stringify(payload),
   });
 
+export interface TransactionPatch {
+  place_id?: number | null;
+  memo?: string | null;
+  category_id?: number | null;
+  merchant?: string | null;
+  amount?: number;
+}
+
+export const updateTransaction = (id: number, payload: TransactionPatch) =>
+  api<Transaction>(`/transactions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
 export const getBudgetStatus = (month: string) =>
   api<BudgetStatus[]>(`/budgets/status?month=${encodeURIComponent(month)}`);
 
@@ -252,3 +266,80 @@ export const getNetWorthCurrent = () => api<NetWorthCurrent>("/net-worth/current
 
 export const getNetWorthSnapshots = (limit = 24) =>
   api<NetWorthSnapshot[]>(`/net-worth/snapshots?limit=${limit}`);
+
+// ---------- Lifelog (records) ----------
+export interface Tag {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
+export interface Place {
+  id: number;
+  name: string;
+  region: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  kakao_place_id: string | null;
+  created_at: string;
+}
+
+export interface Photo {
+  id: number;
+  transaction_id: number | null;
+  file_path: string;
+  taken_at: string | null;
+  created_at: string;
+}
+
+export interface RecordItem {
+  id: number;
+  type: TxnType;
+  amount: number;
+  occurred_at: string;
+  merchant: string | null;
+  memo: string | null;
+  category_id: number | null;
+  place: Place | null;
+  photos: Photo[];
+  tags: Tag[];
+}
+
+export const getTags = () => api<Tag[]>("/tags");
+
+export const createTag = (payload: { name: string; color?: string | null }) =>
+  api<Tag>("/tags", { method: "POST", body: JSON.stringify(payload) });
+
+export const getRecords = (params: { tag_id?: number; month?: string } = {}) =>
+  api<RecordItem[]>(`/records${qs(params)}`);
+
+export const createPlace = (payload: {
+  name: string;
+  region?: string | null;
+  address?: string | null;
+}) => api<Place>("/places", { method: "POST", body: JSON.stringify(payload) });
+
+export const setTransactionTags = (txnId: number, tag_ids: number[]) =>
+  api<Tag[]>(`/transactions/${txnId}/tags`, {
+    method: "PUT",
+    body: JSON.stringify({ tag_ids }),
+  });
+
+/** 업로드된 사진의 절대 URL. file_path 는 "/uploads/<파일명>". */
+export function photoUrl(filePath: string): string {
+  return `${API_BASE}${filePath}`;
+}
+
+/** 사진 업로드 (multipart). api() 는 JSON 전용이라 별도 구현. */
+export async function uploadPhoto(file: File, transactionId?: number): Promise<Photo> {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (transactionId != null) fd.append("transaction_id", String(transactionId));
+  const res = await fetch(`${API_BASE}/photos`, { method: "POST", body: fd });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`사진 업로드 실패 ${res.status}${body ? `: ${body}` : ""}`);
+  }
+  return res.json() as Promise<Photo>;
+}

@@ -3,7 +3,14 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.core import Transaction
-from app.schemas import TransactionCreate, TransactionRead, TransactionUpdate
+from app.models.lifelog import Tag, TransactionTag
+from app.schemas import (
+    TagRead,
+    TransactionCreate,
+    TransactionRead,
+    TransactionTagsSet,
+    TransactionUpdate,
+)
 from app.services.classify import classify
 from app.services.period import month_range
 
@@ -76,3 +83,36 @@ def delete_transaction(txn_id: int, session: Session = Depends(get_session)) -> 
         raise HTTPException(404, "transaction not found")
     session.delete(obj)
     session.commit()
+
+
+@router.get("/{txn_id}/tags", response_model=list[TagRead])
+def get_transaction_tags(
+    txn_id: int, session: Session = Depends(get_session)
+) -> list[Tag]:
+    return list(
+        session.exec(
+            select(Tag)
+            .join(TransactionTag, TransactionTag.tag_id == Tag.id)
+            .where(TransactionTag.transaction_id == txn_id)
+        ).all()
+    )
+
+
+@router.put("/{txn_id}/tags", response_model=list[TagRead])
+def set_transaction_tags(
+    txn_id: int, payload: TransactionTagsSet, session: Session = Depends(get_session)
+) -> list[Tag]:
+    """거래의 태그를 payload.tag_ids 로 통째 교체."""
+    if not session.get(Transaction, txn_id):
+        raise HTTPException(404, "transaction not found")
+    # 기존 링크 제거
+    for link in session.exec(
+        select(TransactionTag).where(TransactionTag.transaction_id == txn_id)
+    ).all():
+        session.delete(link)
+    # 새 링크 생성 (존재하는 태그만)
+    for tag_id in dict.fromkeys(payload.tag_ids):  # 중복 제거, 순서 유지
+        if session.get(Tag, tag_id):
+            session.add(TransactionTag(transaction_id=txn_id, tag_id=tag_id))
+    session.commit()
+    return get_transaction_tags(txn_id, session)

@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     accounts,
@@ -7,6 +10,10 @@ from app.api import (
     categories,
     category_rules,
     net_worth,
+    photos,
+    places,
+    records,
+    tags,
     transactions,
 )
 from app.config import settings
@@ -26,8 +33,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (accounts, categories, category_rules, transactions, budgets, net_worth):
+for module in (
+    accounts,
+    categories,
+    category_rules,
+    transactions,
+    budgets,
+    net_worth,
+    tags,
+    places,
+    photos,
+    records,
+):
     app.include_router(module.router)
+
+# 업로드된 사진 정적 서빙 (/uploads/<파일명>)
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/health", tags=["meta"])
