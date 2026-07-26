@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+.env
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+
+# node / next (web/ 에도 자체 .gitignore 있음)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Claude Code 로컬 설정(머신별 권한)
+.claude/settings.local.json
