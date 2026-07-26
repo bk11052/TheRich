@@ -137,6 +137,61 @@ export const getAccounts = () => api<Account[]>("/accounts");
 
 export const getCategories = () => api<Category[]>("/categories");
 
+export interface CategoryInput {
+  name: string;
+  kind: CategoryKind;
+  is_fixed?: boolean;
+  parent_id?: number | null;
+  icon?: string | null;
+  color?: string | null;
+  sort_order?: number;
+}
+
+export const createCategory = (payload: CategoryInput) =>
+  api<Category>("/categories", { method: "POST", body: JSON.stringify(payload) });
+
+export const updateCategory = (id: number, payload: Partial<CategoryInput>) =>
+  api<Category>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+
+export const deleteCategory = (id: number) =>
+  api<void>(`/categories/${id}`, { method: "DELETE" });
+
+// ---------- Category rules ----------
+export type MatchType = "contains" | "regex" | "exact";
+
+export interface CategoryRule {
+  id: number;
+  match_type: MatchType;
+  pattern: string;
+  category_id: number;
+  priority: number;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategoryRuleInput {
+  match_type: MatchType;
+  pattern: string;
+  category_id: number;
+  priority?: number;
+  enabled?: boolean;
+}
+
+export const getCategoryRules = () => api<CategoryRule[]>("/category-rules");
+
+export const createCategoryRule = (payload: CategoryRuleInput) =>
+  api<CategoryRule>("/category-rules", { method: "POST", body: JSON.stringify(payload) });
+
+export const updateCategoryRule = (id: number, payload: Partial<CategoryRuleInput>) =>
+  api<CategoryRule>(`/category-rules/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteCategoryRule = (id: number) =>
+  api<void>(`/category-rules/${id}`, { method: "DELETE" });
+
 export const getTransactions = (params: {
   month?: string;
   account_id?: number;
@@ -165,6 +220,33 @@ export const createTransaction = (payload: TransactionCreate) =>
 
 export const getBudgetStatus = (month: string) =>
   api<BudgetStatus[]>(`/budgets/status?month=${encodeURIComponent(month)}`);
+
+export interface Budget {
+  id: number;
+  category_id: number;
+  period_month: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BudgetInput {
+  category_id: number;
+  period_month: string;
+  amount: number;
+}
+
+export const getBudgets = (month: string) =>
+  api<Budget[]>(`/budgets?month=${encodeURIComponent(month)}`);
+
+export const createBudget = (payload: BudgetInput) =>
+  api<Budget>("/budgets", { method: "POST", body: JSON.stringify(payload) });
+
+export const updateBudget = (id: number, payload: Partial<BudgetInput>) =>
+  api<Budget>(`/budgets/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+
+export const deleteBudget = (id: number) =>
+  api<void>(`/budgets/${id}`, { method: "DELETE" });
 
 export const getNetWorthCurrent = () => api<NetWorthCurrent>("/net-worth/current");
 

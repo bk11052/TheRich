@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bell,
+  ChevronRight,
   CreditCard,
   Filter,
   KeyRound,
@@ -18,6 +20,7 @@ type Item = {
   icon: LucideIcon;
   label: string;
   desc: string;
+  href?: string;
   soon?: boolean;
 };
 
@@ -25,9 +28,9 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "관리",
     items: [
-      { icon: PiggyBank, label: "예산 설정", desc: "카테고리별 월 예산" },
-      { icon: Tags, label: "카테고리", desc: "지출·수입 분류 관리" },
-      { icon: Filter, label: "자동분류 규칙", desc: "가맹점 → 카테고리 규칙" },
+      { icon: PiggyBank, label: "예산 설정", desc: "카테고리별 월 예산", href: "/more/budgets" },
+      { icon: Tags, label: "카테고리", desc: "지출·수입 분류 관리", href: "/more/categories" },
+      { icon: Filter, label: "자동분류 규칙", desc: "가맹점 → 카테고리 규칙", href: "/more/rules" },
     ],
   },
   {
@@ -51,19 +54,8 @@ export default function MorePage() {
           <Card className="gap-0 overflow-hidden py-0">
             {section.items.map((it) => {
               const Icon = it.icon;
-              return (
-                <button
-                  key={it.label}
-                  type="button"
-                  disabled={it.soon}
-                  onClick={() =>
-                    toast(`${it.label} 화면은 곧 추가돼요`)
-                  }
-                  className={cn(
-                    "flex w-full items-center gap-3 border-b px-4 py-3 text-left last:border-b-0",
-                    it.soon ? "opacity-55" : "transition-colors hover:bg-accent",
-                  )}
-                >
+              const inner = (
+                <>
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <Icon className="size-[18px]" />
                   </span>
@@ -71,11 +63,38 @@ export default function MorePage() {
                     <p className="text-sm font-medium">{it.label}</p>
                     <p className="truncate text-[12px] text-muted-foreground">{it.desc}</p>
                   </div>
-                  {it.soon && (
+                  {it.soon ? (
                     <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                       예정
                     </span>
+                  ) : (
+                    <ChevronRight className="size-4 text-muted-foreground" />
                   )}
+                </>
+              );
+              const rowClass =
+                "flex w-full items-center gap-3 border-b px-4 py-3 text-left last:border-b-0";
+
+              if (it.href) {
+                return (
+                  <Link
+                    key={it.label}
+                    href={it.href}
+                    className={cn(rowClass, "transition-colors hover:bg-accent")}
+                  >
+                    {inner}
+                  </Link>
+                );
+              }
+              return (
+                <button
+                  key={it.label}
+                  type="button"
+                  disabled={it.soon}
+                  onClick={() => toast(`${it.label} 화면은 곧 추가돼요`)}
+                  className={cn(rowClass, it.soon ? "opacity-55" : "transition-colors hover:bg-accent")}
+                >
+                  {inner}
                 </button>
               );
             })}
