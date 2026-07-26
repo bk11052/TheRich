@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import (
     accounts,
     budgets,
+    cards,
     categories,
     category_rules,
     net_worth,
@@ -58,6 +59,7 @@ for module in (
     places,
     photos,
     records,
+    cards,
 ):
     app.include_router(module.router)
 

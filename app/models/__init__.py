@@ -3,6 +3,7 @@
 Alembic env.py 가 `import app.models` 만 해도 전체 스키마를 인식하도록 하는 게 목적.
 """
 
+from app.models.cards import Card, CardBenefit
 from app.models.core import (
     Account,
     Budget,
@@ -24,4 +25,6 @@ __all__ = [
     "Photo",
     "Tag",
     "TransactionTag",
+    "Card",
+    "CardBenefit",
 ]

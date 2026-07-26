@@ -12,7 +12,14 @@ from pathlib import Path
 from sqlmodel import Session, select
 
 from app.db import engine
-from app.models.base import AccountSide, AccountType, TxnSource, TxnType
+from app.models.base import (
+    AccountSide,
+    AccountType,
+    BenefitKind,
+    TxnSource,
+    TxnType,
+)
+from app.models.cards import Card, CardBenefit
 from app.models.core import Account, Budget, Category, NetWorthSnapshot, Transaction
 from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.services.classify import classify
@@ -91,6 +98,7 @@ def seed_demo() -> None:
         if session.exec(select(Transaction)).first():
             print("거래가 이미 존재 — 계좌/거래/예산 시드 건너뜀")
             _seed_lifelog()
+            _seed_cards()
             return
 
         # --- 계좌 ---
@@ -164,6 +172,7 @@ def seed_demo() -> None:
         print(f"기준월: {month_str}")
 
     _seed_lifelog()
+    _seed_cards()
 
 
 # 기록(라이프로그) 데모: 태그·장소·사진을 일부 거래에 연결. Tag 존재 시 스킵(idempotent).
@@ -271,6 +280,81 @@ def _seed_lifelog() -> None:
             f"lifelog: tags +{len(tags)}  places +{n_place}  "
             f"photos +{n_photo}  tag-links +{n_link}"
         )
+
+
+# 데모 카드 + 혜택. (카드명, 발행사, 연결계좌명|None, 전월실적원|None,
+#   [(카테고리명|None, kind, rate_bp, 월한도원|None, 메모)])
+A = BenefitKind.accrue
+D = BenefitKind.discount
+CARDS = [
+    (
+        "현대카드 M",
+        "현대",
+        "현대카드 M",
+        300_000,
+        [
+            ("카페/간식", A, 1000, 20_000, "카페 10% 적립"),
+            ("배달", A, 500, 15_000, None),
+            (None, A, 70, None, "기본 0.7% 적립"),
+        ],
+    ),
+    (
+        "삼성 taptap",
+        "삼성",
+        None,
+        400_000,
+        [
+            ("교통", D, 1000, 5_000, "대중교통 10% 할인"),
+            ("마트/장보기", A, 500, 20_000, None),
+            ("편의점", A, 500, 10_000, None),
+        ],
+    ),
+    (
+        "신한 Deep Dream",
+        "신한",
+        None,
+        None,
+        [
+            (None, A, 100, None, "전 가맹점 1% 적립"),
+            ("의류/미용", A, 300, 30_000, None),
+        ],
+    ),
+]
+
+
+def _seed_cards() -> None:
+    with Session(engine) as session:
+        if session.exec(select(Card)).first():
+            print("카드가 이미 존재 — 카드 시드 건너뜀")
+            return
+        cat_id = {c.name: c.id for c in session.exec(select(Category)).all()}
+        acc_id = {a.name: a.id for a in session.exec(select(Account)).all()}
+        n_card = n_benefit = 0
+        for name, issuer, acc_name, threshold, benefits in CARDS:
+            card = Card(
+                name=name,
+                issuer=issuer,
+                account_id=acc_id.get(acc_name) if acc_name else None,
+                performance_threshold=threshold,
+            )
+            session.add(card)
+            session.commit()
+            session.refresh(card)
+            n_card += 1
+            for cname, kind, rate, cap, note in benefits:
+                session.add(
+                    CardBenefit(
+                        card_id=card.id,
+                        category_id=cat_id.get(cname) if cname else None,
+                        kind=kind,
+                        rate_bp=rate,
+                        monthly_cap=cap,
+                        note=note,
+                    )
+                )
+                n_benefit += 1
+        session.commit()
+        print(f"cards: +{n_card}  benefits: +{n_benefit}")
 
 
 if __name__ == "__main__":

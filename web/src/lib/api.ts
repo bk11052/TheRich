@@ -343,3 +343,69 @@ export async function uploadPhoto(file: File, transactionId?: number): Promise<P
   }
   return res.json() as Promise<Photo>;
 }
+
+// ---------- Cards (혜택) ----------
+export type BenefitKind = "accrue" | "discount";
+
+export interface BenefitInfo {
+  id: number;
+  category_id: number | null;
+  category_name: string;
+  kind: BenefitKind;
+  rate_bp: number;
+  monthly_cap: number | null;
+  note: string | null;
+}
+
+export interface CardStatus {
+  id: number;
+  name: string;
+  issuer: string | null;
+  account_id: number | null;
+  performance_threshold: number | null;
+  annual_fee: number;
+  active: boolean;
+  monthly_spend: number;
+  threshold_met: boolean;
+  benefits: BenefitInfo[];
+}
+
+export interface BestCard {
+  category_id: number | null;
+  category_name: string;
+  card_id: number;
+  card_name: string;
+  kind: BenefitKind;
+  rate_bp: number;
+  note: string | null;
+}
+
+export interface CardInput {
+  name: string;
+  issuer?: string | null;
+  account_id?: number | null;
+  performance_threshold?: number | null;
+  annual_fee?: number;
+}
+
+export interface BenefitInput {
+  category_id?: number | null;
+  kind: BenefitKind;
+  rate_bp: number;
+  monthly_cap?: number | null;
+  note?: string | null;
+}
+
+export const getCards = () => api<CardStatus[]>("/cards");
+export const getBestByCategory = () => api<BestCard[]>("/cards/best-by-category");
+export const createCard = (payload: CardInput) =>
+  api<CardStatus>("/cards", { method: "POST", body: JSON.stringify(payload) });
+export const deleteCard = (id: number) =>
+  api<void>(`/cards/${id}`, { method: "DELETE" });
+export const addCardBenefit = (cardId: number, payload: BenefitInput) =>
+  api<BenefitInfo>(`/cards/${cardId}/benefits`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+export const deleteCardBenefit = (benefitId: number) =>
+  api<void>(`/cards/benefits/${benefitId}`, { method: "DELETE" });

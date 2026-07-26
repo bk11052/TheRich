@@ -36,7 +36,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "혜택 · 정책",
     items: [
-      { icon: CreditCard, label: "카드 혜택", desc: "최적 카드 추천·실적 추적", soon: true },
+      { icon: CreditCard, label: "카드 혜택", desc: "최적 카드 추천·실적 추적", href: "/more/cards" },
       { icon: KeyRound, label: "주택청약", desc: "납입·가점·일정 알림", soon: true },
       { icon: Bell, label: "맞춤 정책", desc: "나·가족 정책 매칭 알림", soon: true },
     ],

@@ -12,11 +12,13 @@ from sqlmodel import SQLModel
 from app.models.base import (
     AccountSide,
     AccountType,
+    BenefitKind,
     CategoryKind,
     MatchType,
     TxnSource,
     TxnType,
 )
+from app.models.cards import CardBase, CardBenefitBase
 from app.models.core import (
     AccountBase,
     BudgetBase,
@@ -242,3 +244,76 @@ class RecordRead(SQLModel):
     place: PlaceRead | None = None
     photos: list[PhotoRead] = []
     tags: list[TagRead] = []
+
+
+# ---------- Cards ----------
+class CardCreate(CardBase):
+    pass
+
+
+class CardRead(CardBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class CardUpdate(SQLModel):
+    name: str | None = None
+    issuer: str | None = None
+    account_id: int | None = None
+    performance_threshold: int | None = None
+    annual_fee: int | None = None
+    active: bool | None = None
+    sort_order: int | None = None
+
+
+class CardBenefitCreate(CardBenefitBase):
+    pass
+
+
+class CardBenefitRead(CardBenefitBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class CardBenefitUpdate(SQLModel):
+    category_id: int | None = None
+    kind: BenefitKind | None = None
+    rate_bp: int | None = None
+    monthly_cap: int | None = None
+    note: str | None = None
+
+
+# 화면용 합성 (라우터에서 dict 로 구성)
+class BenefitInfo(SQLModel):
+    id: int
+    category_id: int | None
+    category_name: str  # None 이면 "전체"
+    kind: BenefitKind
+    rate_bp: int
+    monthly_cap: int | None
+    note: str | None
+
+
+class CardStatus(SQLModel):
+    id: int
+    name: str
+    issuer: str | None
+    account_id: int | None
+    performance_threshold: int | None
+    annual_fee: int
+    active: bool
+    monthly_spend: int
+    threshold_met: bool
+    benefits: list[BenefitInfo]
+
+
+class BestCard(SQLModel):
+    category_id: int | None
+    category_name: str
+    card_id: int
+    card_name: str
+    kind: BenefitKind
+    rate_bp: int
+    note: str | None

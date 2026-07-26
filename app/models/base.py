@@ -55,3 +55,8 @@ class MatchType(str, Enum):
     contains = "contains"
     regex = "regex"
     exact = "exact"
+
+
+class BenefitKind(str, Enum):
+    accrue = "accrue"  # 적립
+    discount = "discount"  # 할인
