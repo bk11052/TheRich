@@ -219,7 +219,13 @@ def _seed_lifelog() -> None:
         # 1) 삼겹살 회식 — 장소 + 회식·가족 태그 + 사진
         t1 = find_txn("삼겹살")
         if t1:
-            p = add_place(name="성수동 삼겹살", region="성수동", address="서울 성동구 성수이로")
+            p = add_place(
+                name="성수동 삼겹살",
+                region="성수동",
+                address="서울 성동구 성수이로",
+                lat=37.5447,
+                lng=127.0557,
+            )
             n_place += 1
             t1.place_id = p.id
             t1.memo = "가족 외식"
@@ -237,7 +243,7 @@ def _seed_lifelog() -> None:
         # 2) 스타벅스 — 장소 + 혼밥 태그 + 사진
         t2 = find_txn("스타벅스")
         if t2:
-            p = add_place(name="스타벅스 강남점", region="강남")
+            p = add_place(name="스타벅스 강남점", region="강남", lat=37.4979, lng=127.0276)
             n_place += 1
             t2.place_id = p.id
             session.add(t2)
@@ -253,7 +259,7 @@ def _seed_lifelog() -> None:
         # 3) 이마트 — 장소 + 가족 태그 (사진 없음: mixed 상태 데모)
         t3 = find_txn("이마트")
         if t3:
-            p = add_place(name="이마트 성수점", region="성수동")
+            p = add_place(name="이마트 성수점", region="성수동", lat=37.5423, lng=127.0567)
             n_place += 1
             t3.place_id = p.id
             session.add(t3)

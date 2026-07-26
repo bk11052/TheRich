@@ -1,20 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.lifelog import Place
 from app.schemas import PlaceCreate, PlaceRead, PlaceUpdate
+from app.services import geocode
 
 router = APIRouter(prefix="/places", tags=["places"])
 
 
 @router.post("", response_model=PlaceRead, status_code=201)
 def create_place(payload: PlaceCreate, session: Session = Depends(get_session)) -> Place:
-    obj = Place(**payload.model_dump())
+    data = payload.model_dump()
+    # 좌표 미지정 + 카카오 키 있으면 상호명으로 자동 지오코딩
+    if data.get("lat") is None and data.get("lng") is None:
+        hit = geocode.geocode_place(data["name"])
+        if hit:
+            for field in ("address", "region", "lat", "lng", "kakao_place_id"):
+                if data.get(field) is None and hit.get(field) is not None:
+                    data[field] = hit[field]
+    obj = Place(**data)
     session.add(obj)
     session.commit()
     session.refresh(obj)
     return obj
+
+
+@router.get("/search")
+def search_places(q: str = Query(..., min_length=1)) -> list[dict]:
+    """카카오 로컬 키워드 검색 (자동완성용). 키 없으면 빈 배열."""
+    return geocode.search_places(q)
 
 
 @router.get("", response_model=list[PlaceRead])

@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ImageIcon, MapPin, Plus } from "lucide-react";
+import { ImageIcon, LayoutGrid, Map, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Amount } from "@/components/amount";
 import { AddRecord } from "@/components/records/add-record";
 import { RecordDetail } from "@/components/records/record-detail";
+import { RecordsMap } from "@/components/records/records-map";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getRecords, getTags, photoUrl, type RecordItem, type Tag } from "@/lib/api";
@@ -25,6 +26,7 @@ export default function RecordsPage() {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<RecordItem | null>(null);
+  const [view, setView] = useState<"gallery" | "map">("gallery");
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -73,12 +75,42 @@ export default function RecordsPage() {
         </div>
       )}
 
+      {/* 갤러리 / 지도 토글 */}
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-lg border p-0.5">
+          {(
+            [
+              { key: "gallery", icon: LayoutGrid, label: "갤러리" },
+              { key: "map", icon: Map, label: "지도" },
+            ] as const
+          ).map(({ key, icon: Icon, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              aria-label={label}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                view === key
+                  ? "bg-brand/10 text-brand"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square w-full rounded-xl" />
           ))}
         </div>
+      ) : view === "map" ? (
+        <RecordsMap records={records} onSelect={setDetail} />
       ) : records.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">

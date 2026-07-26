@@ -30,6 +30,16 @@ uvicorn app.main:app --reload
 cd web && pnpm install && pnpm dev   # http://localhost:3000
 ```
 
+## 카카오 지도 (기록 탭, 선택)
+
+상호명 → 좌표(지오코딩) + 기록 탭 지도뷰. 키 없으면 수기 저장·안내 폴백.
+
+1. https://developers.kakao.com → 애플리케이션 추가 → 앱 키 확인
+2. **REST API 키** → 루트 `.env` 의 `KAKAO_REST_API_KEY` (백엔드 지오코딩)
+3. **JavaScript 키** → `web/.env.local` 의 `NEXT_PUBLIC_KAKAO_JS_KEY` (프론트 지도)
+   - 카카오 앱 > 플랫폼 > Web 에 `http://localhost:3000` 등록
+4. 백엔드/프론트 재시작 → 장소 저장 시 좌표 자동 채움, 기록 탭 '지도' 토글에 마커 표시
+
 ## 텔레그램 봇 (모바일 지출 입력)
 
 봇은 **별도 프로세스**로, 텍스트 지출을 백엔드 API로 저장한다.
