@@ -27,7 +27,8 @@ from telegram.ext import (
 )
 
 from app.config import settings
-from app.services.expense_parser import parse_expense
+from app.services import ocr
+from app.services.expense_parser import ParsedExpense, parse_expense, parse_receipt
 
 API = settings.api_base_url.rstrip("/")
 KST = ZoneInfo("Asia/Seoul")
@@ -102,13 +103,9 @@ async def month_cmd(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    parsed = parse_expense(update.message.text)
-    if not parsed:
-        await update.message.reply_text(
-            "금액을 못 찾았어요. '가맹점 금액' 형식으로 보내주세요. 예: 스타벅스 5500"
-        )
-        return
+async def _ask_confirm(
+    update: Update, ctx: ContextTypes.DEFAULT_TYPE, parsed: ParsedExpense, prefix: str = ""
+) -> None:
     ctx.user_data["pending"] = {"amount": parsed.amount, "merchant": parsed.merchant}
     kb = InlineKeyboardMarkup(
         [[
@@ -118,8 +115,18 @@ async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
     merch = parsed.merchant or "(미상)"
     await update.message.reply_text(
-        f"{merch} · {parsed.amount:,}원\n지출로 저장할까요?", reply_markup=kb
+        f"{prefix}{merch} · {parsed.amount:,}원\n지출로 저장할까요?", reply_markup=kb
     )
+
+
+async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    parsed = parse_expense(update.message.text)
+    if not parsed:
+        await update.message.reply_text(
+            "금액을 못 찾았어요. '가맹점 금액' 형식으로 보내주세요. 예: 스타벅스 5500"
+        )
+        return
+    await _ask_confirm(update, ctx, parsed)
 
 
 async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -155,11 +162,23 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def on_photo(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "사진 OCR 은 아직 준비 중이에요. 지금은 '가맹점 금액' 텍스트로 보내주세요.\n"
-        "예: 스타벅스 5500"
-    )
+async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not ocr.is_available():
+        await update.message.reply_text(
+            "이 서버에선 사진 OCR을 쓸 수 없어요(맥 로컬 전용). '가맹점 금액' 텍스트로 보내주세요."
+        )
+        return
+    await update.message.reply_text("사진 읽는 중…")
+    tg_file = await update.message.photo[-1].get_file()
+    raw = await tg_file.download_as_bytearray()
+    text = ocr.extract_text(bytes(raw))
+    parsed = parse_receipt(text)
+    if not parsed:
+        await update.message.reply_text(
+            "사진에서 금액을 못 읽었어요. '가맹점 금액' 텍스트로 보내주세요."
+        )
+        return
+    await _ask_confirm(update, ctx, parsed, prefix="사진에서 읽었어요\n")
 
 
 async def nudge(ctx: ContextTypes.DEFAULT_TYPE) -> None:

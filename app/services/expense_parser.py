@@ -56,6 +56,58 @@ def parse_expense(text: str) -> ParsedExpense | None:
     return ParsedExpense(amount=amount, merchant=merchant or None)
 
 
+_AMOUNT_WON = re.compile(r"([\d,]{2,})\s*원")
+_WON_SIGN = re.compile(r"[₩\\]\s*([\d,]{2,})")
+_HANGUL = re.compile(r"[가-힣]")
+# 영수증/결제화면 라벨 — 가맹점명으로 오인 방지
+_LABELS = (
+    "승인", "취소", "합계", "금액", "결제", "카드", "일시", "가맹", "할부",
+    "포인트", "잔액", "주소", "전화", "사업자", "매출", "부가세", "공급가",
+    "TEL", "tel", "No", "님",
+)
+
+
+def parse_receipt(text: str) -> ParsedExpense | None:
+    """결제 스크린샷 OCR 텍스트(멀티라인) → 금액·가맹점 추정.
+
+    금액: 'N원'/'₩N' 패턴 중 최댓값(=총액) 우선, 없으면 3자리+ 숫자 최댓값.
+    가맹점: 한글이 있고 숫자 비중이 낮으며 라벨이 아닌 첫 줄.
+    """
+    if not text:
+        return None
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+    amounts: list[int] = []
+    for m in _AMOUNT_WON.finditer(text):
+        amounts.append(int(m.group(1).replace(",", "")))
+    for m in _WON_SIGN.finditer(text):
+        amounts.append(int(m.group(1).replace(",", "")))
+    if not amounts:
+        for n in re.findall(r"[\d,]{3,}", text):
+            v = int(n.replace(",", ""))
+            if v >= 100:
+                amounts.append(v)
+    if not amounts:
+        return None
+    amount = max(amounts)
+
+    merchant: str | None = None
+    for ln in lines:
+        if not _HANGUL.search(ln):
+            continue
+        if any(lb in ln for lb in _LABELS):
+            continue
+        digits = sum(c.isdigit() for c in ln)
+        if digits > len(ln) // 2:
+            continue
+        if len(ln) < 2:
+            continue
+        merchant = ln
+        break
+
+    return ParsedExpense(amount=amount, merchant=merchant)
+
+
 # --- 셀프테스트: python -m app.services.expense_parser ---
 if __name__ == "__main__":
     cases = [

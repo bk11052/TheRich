@@ -6,4 +6,6 @@ pydantic-settings>=2.4
 python-multipart>=0.0.9
 apscheduler>=3.10,<4
 python-telegram-bot[job-queue]>=21
+# 텔레그램 사진 OCR (Apple Vision, macOS 전용)
+pyobjc-framework-Vision>=10; sys_platform == "darwin"
 httpx>=0.27
