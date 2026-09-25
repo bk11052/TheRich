@@ -22,12 +22,14 @@ note "3. Sensitive paths tracked"
 if git ls-files | grep -aE "$PATHS" | grep -v '\.env\.example'; then bad "sensitive path tracked"; else ok "none"; fi
 
 note "4. Secret patterns anywhere in history"
+# Resolve blob -> path so this script's own pattern definitions don't self-match.
 hits=0
-while read -r b; do
-  git cat-file -p "$b" 2>/dev/null | grep -aqIE "$SECRETS" && { echo "  blob $b"; hits=1; }
-done < <(git rev-list --all --objects | awk '{print $1}' | sort -u \
-         | git cat-file --batch-check='%(objectname) %(objecttype)' 2>/dev/null \
-         | awk '$2=="blob"{print $1}')
+while read -r sha path; do
+  case "$path" in scripts/audit-secrets.sh) continue ;; esac
+  if git cat-file -p "$sha" 2>/dev/null | grep -aqIE "$SECRETS"; then
+    echo "  $sha  $path"; hits=1
+  fi
+done < <(git rev-list --all --objects | awk 'NF>=2{print $1" "$2}' | sort -u)
 [ "$hits" -eq 1 ] && bad "secret found in history — ROTATE the credential, then rewrite history" || ok "none"
 
 note "5. Sensitive paths anywhere in history"
