@@ -80,3 +80,14 @@ alembic/           DB 마이그레이션
 - 라우터: accounts · categories · category-rules · transactions · budgets · net-worth · tags · places · photos · records.
 - 순자산 자동 스냅샷: `app/scheduler.py`(APScheduler) — 매월 말일 + 시작 보정.
 - 자세한 설계 배경은 `~/.claude/.../memory` 의 `therich-*` 메모 참조.
+
+## 보안 설정 (clone 후 1회)
+
+푸시 전 시크릿·개인정보 자동 검사를 켭니다.
+
+```bash
+git config core.hooksPath .githooks
+```
+
+이후 `git push`마다 `scripts/audit-secrets.sh`가 자동 실행되고, 발견되면 푸시가 중단됩니다.
+수동 실행은 `./scripts/audit-secrets.sh`.

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs the secret/PII audit before every push. Non-zero exit aborts the push.
+# Enabled by: git config core.hooksPath .githooks   (see README)
+# Bypass (use only when you are certain): git push --no-verify
+set -uo pipefail
+repo_root="$(git rev-parse --show-toplevel)"
+audit="$repo_root/scripts/audit-secrets.sh"
+
+[ -x "$audit" ] || { echo "pre-push: $audit missing or not executable"; exit 1; }
+
+echo "pre-push: running secret/PII audit..."
+if "$audit"; then
+  exit 0
+fi
+
+cat <<'MSG'
+
+pre-push: PUSH ABORTED — the audit found secrets or personal data.
+
+  This repository is public. Anything pushed is immediately visible and may be
+  cached or forked even if you delete it afterwards.
+
+  If a real credential was committed, ROTATE IT FIRST (revoke and reissue),
+  then rewrite history. Purging the commit alone does not make a leaked key safe.
+
+  To push anyway (only if you are certain the findings are false positives):
+    git push --no-verify
+MSG
+exit 1

@@ -25,7 +25,13 @@ Design rationale, roadmap, and product/UX decisions live in Claude's persistent 
 - Personal profile/benefit notes stay **untracked** (`.gitignore`d) and are referenced for domain logic only. `혜택_청약_정리.md` is such a file: it exists locally, is ignored by git, and was purged from history on 2026-09-26.
 - Design rationale belongs in Claude's memory (outside the repo), not in tracked docs, when it would require quoting personal data.
 
-**Before any `git push` or before adding a remote**, run the audit in `scripts/audit-secrets.sh`. If a leak is already committed, purging history is not enough when a remote exists — **rotate the credential first**, then rewrite history.
+**The audit runs automatically.** `.githooks/pre-push` invokes `scripts/audit-secrets.sh` on every push and aborts if anything is found. It is tracked, so a fresh clone needs the hook path enabled once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Run `./scripts/audit-secrets.sh` by hand any time. `git push --no-verify` bypasses the hook — only for confirmed false positives. If a leak is already committed, purging history is not enough once a remote exists: **rotate the credential first**, then rewrite history.
 
 ## Commands
 
