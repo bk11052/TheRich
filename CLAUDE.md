@@ -8,6 +8,25 @@ TheRich is a personal (single-user) asset-management dashboard backend. Current 
 
 Design rationale, roadmap, and product/UX decisions live in Claude's persistent memory (`therich-project`, `therich-features`, `therich-ai-cost`, `therich-design`, `user-devices`) — consult it for the "why" behind choices.
 
+## Security & privacy (hard rule)
+
+**Never commit secrets or personal data to this repository.** It is intended to be pushable to a remote at any time, so "it's only local" is not a safeguard — anything in git history ships the moment a remote is added.
+
+**Never tracked, no exceptions:**
+
+- Credentials of any kind — API keys, tokens, client secrets, passwords, cookies, private keys. Includes `TELEGRAM_BOT_TOKEN`, `KAKAO_REST_API_KEY`, `NEXT_PUBLIC_KAKAO_JS_KEY`, `TOSS_CLIENT_ID` / `TOSS_CLIENT_SECRET`. These live in `.env` / `web/.env.local` only; `.env.example` carries **empty placeholders and comments, never real values**.
+- The user's personal data — real name, resident registration number, address, phone, email, date of birth, family composition, military service, school/employer, salary, account/card numbers, balances, holdings, transactions, benefit/청약 eligibility details.
+- Real data files — `*.db`, `*.sqlite`, `uploads/` (receipt/food photos), CSV exports, screenshots of bank or brokerage apps.
+
+**Consequences for how code is written:**
+
+- Seed and demo data must be synthetic (`app/seed_demo.py`). Never seed the repo with the user's real accounts, balances, or transactions.
+- Never write personal data into source, comments, commit messages, logs, test fixtures, or error strings. When domain logic needs the user's profile, read it at runtime from an ignored file or the DB — do not inline it.
+- Personal profile/benefit notes stay **untracked** (`.gitignore`d) and are referenced for domain logic only. `혜택_청약_정리.md` is such a file: it exists locally, is ignored by git, and was purged from history on 2026-09-26.
+- Design rationale belongs in Claude's memory (outside the repo), not in tracked docs, when it would require quoting personal data.
+
+**Before any `git push` or before adding a remote**, run the audit in `scripts/audit-secrets.sh`. If a leak is already committed, purging history is not enough when a remote exists — **rotate the credential first**, then rewrite history.
+
 ## Commands
 
 ```bash
@@ -60,4 +79,4 @@ To add/change an entity: edit the Base in `models/core.py` → mirror it in `sch
 
 - `README.md` — quick start.
 - `토스증권-OpenAPI-기초정리.md` — Toss Securities Open API primer for the Phase 2 integration. Key constraints to remember: the Toss Open API is **REST-only (no websocket; poll ≤ 1s)** and exposes only 6 categories (auth/market-data/stock-info/market-info/account/order) — **no news or disclosure endpoints**.
-- `혜택_청약_정리.md` — **contains the user's personal profile** (birth year, address, family, housing/subscription-account status), used for the future benefit/청약/policy-matching feature. Treat as sensitive: reference it for domain logic, but do not copy personal details into code, logs, or outputs.
+- `혜택_청약_정리.md` — **untracked / git-ignored** (see Security & privacy). Contains the user's personal profile (birth year, address, family, housing & subscription-account status, income, benefit eligibility) for the future benefit/청약/policy-matching feature. Present in the working tree only. Reference it for domain logic; never copy personal details into code, logs, commit messages, or outputs, and never re-add it to git.

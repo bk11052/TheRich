@@ -17,3 +17,7 @@ out/
 
 # Claude Code 로컬 설정(머신별 권한)
 .claude/settings.local.json
+
+# 개인정보 — 절대 커밋 금지 (CLAUDE.md > Security & privacy)
+혜택_청약_정리.md
+*.bak
