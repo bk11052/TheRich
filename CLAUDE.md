@@ -46,7 +46,14 @@ alembic upgrade head                              # apply (creates ./therich.db)
 
 # run
 uvicorn app.main:app --reload      # docs at http://127.0.0.1:8000/docs
+
+# demo data — a separate DB and photo folder; therich.db is never touched
+python -m app.demo                 # rebuilds therich-demo.db + uploads-demo/, prints logins
+DATABASE_URL=sqlite:///./therich-demo.db UPLOAD_DIR=uploads-demo uvicorn app.main:app --reload
 ```
+
+- `app/demo.py` refuses any DB or upload path without `demo` in its name, so it cannot overwrite real data. It sets the env vars **before** importing `app.config`, because settings are read at import time. Demo passwords are generated per run and printed, never written to the repo. `tests/test_demo.py` runs the whole generator into a temp dir and asserts `therich.db` and `uploads/` are byte-for-byte unchanged.
+- `UPLOAD_DIR` (default `uploads`) is configurable for exactly this reason; `uploads-*/` is git-ignored.
 
 - **Tests**: `pytest` (see `requirements-dev.txt`). `tests/conftest.py` gives each test a fresh in-memory SQLite through `dependency_overrides`, plus `anon_client` / `client` (owner) / `partner_client` fixtures.
 - No linter/formatter configured.

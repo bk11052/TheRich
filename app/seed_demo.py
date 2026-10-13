@@ -11,6 +11,7 @@ from pathlib import Path
 
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.db import engine
 from app.models.base import (
     AccountSide,
@@ -195,7 +196,7 @@ def _placeholder_svg(text: str, color: str) -> str:
 
 
 def _seed_lifelog() -> None:
-    upload_dir = Path("uploads")
+    upload_dir = Path(settings.upload_dir)
     with Session(engine) as session:
         if session.exec(select(Tag)).first():
             print("태그가 이미 존재 — 기록 시드 건너뜀")

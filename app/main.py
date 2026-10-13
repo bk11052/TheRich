@@ -69,8 +69,8 @@ for module in (
 ):
     app.include_router(module.router)
 
-# 업로드된 사진 정적 서빙 (/uploads/<파일명>)
-UPLOAD_DIR = Path("uploads")
+# 업로드된 사진 정적 서빙 (/uploads/<파일명>). 실제 폴더는 settings.upload_dir.
+UPLOAD_DIR = Path(settings.upload_dir)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 

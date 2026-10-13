@@ -10,14 +10,15 @@ from pathlib import Path
 
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.models.core import Transaction
 from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.schemas import PhotoRead, PlaceRead, RecordRead, TagRead
 from app.services import geocode
 from app.services.period import month_range
 
-# 업로드 저장 위치 (프로젝트 루트 기준). main.py 에서 /uploads 로 정적 서빙.
-UPLOAD_DIR = Path("uploads")
+# 업로드 저장 위치 (프로젝트 루트 기준, settings.upload_dir). main.py 에서 /uploads 로 정적 서빙.
+UPLOAD_DIR = Path(settings.upload_dir)
 MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10MB
 
 # SVG 는 스크립트를 품을 수 있고, /uploads 는 API 와 같은 출처에서 서빙된다.

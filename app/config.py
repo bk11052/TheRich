@@ -6,6 +6,8 @@ class Settings(BaseSettings):
 
     app_name: str = "TheRich"
     database_url: str = "sqlite:///./therich.db"
+    # 업로드 사진 저장 폴더. 데모 DB 를 띄울 땐 uploads-demo 처럼 따로 둬서 실제 사진과 섞이지 않게 한다.
+    upload_dir: str = "uploads"
 
     # 텔레그램 봇 (별도 프로세스). 토큰은 @BotFather 에서 발급받아 .env 에 넣는다.
     telegram_bot_token: str | None = None

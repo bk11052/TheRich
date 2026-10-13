@@ -10,7 +10,7 @@ ok()   { printf '  [ok] %s\n' "$1"; }
 
 SECRETS='(sk-ant-|sk-[A-Za-z0-9]{20,}|ghp_|gho_|github_pat_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-|[0-9]{8,10}:AA[A-Za-z0-9_-]{30,})'
 PII='(주민등록번호|[0-9]{6}-[1-4][0-9]{6}|01[016789]-?[0-9]{3,4}-?[0-9]{4}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})'
-PATHS='(^|/)\.env$|\.db$|\.sqlite|^uploads/|혜택_청약'
+PATHS='(^|/)\.env$|\.db$|\.sqlite|^uploads[^/]*/|혜택_청약'
 
 note "1. Secret patterns in tracked files"
 if git grep -nIE "$SECRETS" -- . ':!scripts/audit-secrets.sh'; then bad "secret-like string tracked"; else ok "none"; fi

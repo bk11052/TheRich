@@ -91,3 +91,22 @@ git config core.hooksPath .githooks
 
 이후 `git push`마다 `scripts/audit-secrets.sh`가 자동 실행되고, 발견되면 푸시가 중단됩니다.
 수동 실행은 `./scripts/audit-secrets.sh`.
+
+## 데모 데이터로 둘러보기
+
+실제 DB(`therich.db`)는 건드리지 않고, 데모 전용 DB와 사진 폴더를 따로 만든다.
+
+```bash
+.venv/bin/python3 -m app.demo
+```
+
+최근 4개월치 개인 지출·수입·예산·순자산과, 데이트비용 수십 건 + 사진·장소·태그·메모가 붙은 추억을 만든다.
+로그인 계정 `demo`(주인)·`demo-partner`(동반자)의 비밀번호는 실행할 때마다 새로 만들어 터미널에 출력한다.
+
+실제 백엔드를 끄고 데모 DB로 띄운다:
+
+```bash
+DATABASE_URL=sqlite:///./therich-demo.db UPLOAD_DIR=uploads-demo .venv/bin/python3 -m uvicorn app.main:app --reload
+```
+
+다 보면 환경변수 없이 다시 띄우면 실제 데이터로 돌아온다. 다시 실행하면 데모는 처음부터 새로 만들어진다.
