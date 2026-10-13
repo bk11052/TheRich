@@ -249,3 +249,18 @@ body.privacy-on [data-private] {
 .dark .login-wordmark {
   background-image: linear-gradient(180deg, #fbe7a6 0%, #eabf57 50%, #c48a25 100%);
 }
+
+/* 지출 농도 글자색(데이트비용 달력). 많을수록 배경과의 대비가 커지게 밝기와 채도를 함께 올린다.
+   회색과 브랜드색은 밝기가 비슷해서 단순히 섞으면 채도만 바뀌어 단계가 눈에 안 띈다. */
+:root {
+  --heat-1: oklch(0.58 0.02 256);
+  --heat-2: oklch(0.53 0.09 256);
+  --heat-3: oklch(0.48 0.15 257);
+  --heat-4: oklch(0.43 0.21 258);
+}
+.dark {
+  --heat-1: oklch(0.6 0.02 252);
+  --heat-2: oklch(0.67 0.07 252);
+  --heat-3: oklch(0.74 0.12 252);
+  --heat-4: oklch(0.82 0.16 252);
+}

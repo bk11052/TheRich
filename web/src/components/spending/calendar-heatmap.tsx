@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatKRW } from "@/lib/format";
-import { daysInMonth, firstWeekday } from "@/lib/month";
+import { daysInMonth, firstWeekday, parseMonth } from "@/lib/month";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -16,14 +16,41 @@ function intensity(amount: number, max: number): number {
   return 1;
 }
 
+// fill: 칸 배경 농도. 0 은 투명.
 const LEVEL_ALPHA = ["0%", "18%", "38%", "62%", "90%"];
 
+// text: 금액 글자 색. 단계별 색은 globals.css 의 --heat-1..4 (테마마다 다름).
+const textColor = (level: number) => `var(--heat-${Math.max(1, level)})`;
+
+/**
+ * 칸에 적는 금액. 이 달력엔 지출만 오므로 '-' 부호는 구분해주는 게 없고 폭만 먹는다
+ * (6자리 금액 + 부호면 옆 칸 숫자와 붙어 보였다). 100만 원 이상은 만 단위로: 1,250,000 → 125만
+ */
+function dayAmount(n: number): string {
+  if (n >= 1_000_000) return `${Math.round(n / 10_000).toLocaleString("ko-KR")}만`;
+  return n.toLocaleString("ko-KR");
+}
+
+/**
+ * 일별 지출 달력. 지출 탭과 데이트비용 탭이 함께 쓴다.
+ *
+ * - variant="fill" (지출 탭): 칸 배경을 지출 농도로 칠한다.
+ * - variant="text" (데이트비용 탭): 칸은 칠하지 않고, 칸에 적은 금액의 글자 색으로 농도를 보여준다.
+ *   onSelect 를 주면 날짜를 눌러 고를 수 있다(같은 날을 다시 누르면 해제).
+ */
 export function CalendarHeatmap({
   month,
   byDay,
+  variant = "fill",
+  selectedDay = null,
+  onSelect,
 }: {
   month: string;
+  /** byDay[d-1] = d일 지출 합계 */
   byDay: number[];
+  variant?: "fill" | "text";
+  selectedDay?: number | null;
+  onSelect?: (day: number | null) => void;
 }) {
   const days = daysInMonth(month);
   const lead = firstWeekday(month);
@@ -33,13 +60,19 @@ export function CalendarHeatmap({
     ...Array.from({ length: days }, (_, i) => i + 1),
   ];
 
+  const { year, month: m } = parseMonth(month);
+  const now = new Date();
+  const today =
+    now.getFullYear() === year && now.getMonth() + 1 === m ? now.getDate() : null;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-[15px]">일별 지출</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-1.5">
+      {/* text 변형은 칸에 금액을 적어야 하므로 좌우 여백을 줄여 칸 폭을 확보한다 */}
+      <CardContent className={cn(variant === "text" && "px-2")}>
+        <div className={cn("grid grid-cols-7", variant === "fill" ? "gap-1.5" : "gap-x-0.5 gap-y-1")}>
           {WEEKDAYS.map((w, i) => (
             <div
               key={w}
@@ -56,6 +89,50 @@ export function CalendarHeatmap({
             if (day === null) return <div key={`e-${idx}`} />;
             const amount = byDay[day - 1] ?? 0;
             const level = intensity(amount, max);
+
+            if (variant === "text") {
+              const selected = selectedDay === day;
+              const isToday = today === day;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={onSelect ? () => onSelect(selected ? null : day) : undefined}
+                  disabled={!onSelect}
+                  aria-pressed={onSelect ? selected : undefined}
+                  aria-label={`${m}월 ${day}일${amount > 0 ? ` 지출 ${amount.toLocaleString("ko-KR")}원` : " 지출 없음"}`}
+                  className="flex min-h-[54px] flex-col items-center rounded-lg pt-1 transition-colors enabled:hover:bg-accent/60"
+                >
+                  <span
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full text-[14px] tabular-nums",
+                      selected
+                        ? "bg-brand font-semibold text-brand-foreground"
+                        : isToday
+                          ? "font-semibold text-foreground ring-1 ring-brand/60"
+                          : amount > 0
+                            ? "text-foreground"
+                            : "text-muted-foreground/60",
+                    )}
+                  >
+                    {day}
+                  </span>
+                  {amount > 0 && (
+                    <span
+                      data-private=""
+                      className={cn(
+                        "mt-0.5 max-w-full truncate text-[10px] leading-tight tracking-[-0.03em] tabular-nums",
+                        level === 4 && "font-semibold",
+                      )}
+                      style={{ color: textColor(level) }}
+                    >
+                      {dayAmount(amount)}
+                    </span>
+                  )}
+                </button>
+              );
+            }
+
             return (
               <div
                 key={day}
@@ -78,16 +155,27 @@ export function CalendarHeatmap({
           })}
         </div>
 
-        {/* 범례 */}
-        <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+        {/* 범례 — 각 변형이 실제로 쓰는 표현과 같은 모양으로 */}
+        <div className={cn("mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground", variant === "text" && "px-2")}>
           <span>적음</span>
-          {LEVEL_ALPHA.map((a, i) => (
-            <span
-              key={i}
-              className="size-3 rounded-[4px] border"
-              style={{ backgroundColor: `color-mix(in oklch, var(--brand) ${a}, transparent)` }}
-            />
-          ))}
+          {variant === "fill"
+            ? LEVEL_ALPHA.map((a, i) => (
+                <span
+                  key={i}
+                  className="size-3 rounded-[4px] border"
+                  style={{ backgroundColor: `color-mix(in oklch, var(--brand) ${a}, transparent)` }}
+                />
+              ))
+            : [1, 2, 3, 4].map((lv) => (
+                <span
+                  key={lv}
+                  aria-hidden
+                  className={cn("text-[11px] leading-none tabular-nums", lv === 4 && "font-semibold")}
+                  style={{ color: textColor(lv) }}
+                >
+                  ₩
+                </span>
+              ))}
           <span>많음</span>
         </div>
       </CardContent>

@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { Amount } from "@/components/amount";
 import { MonthNav } from "@/components/month-nav";
 import { DateBudgetCard } from "@/components/shared/date-budget-card";
-import { DateCalendar } from "@/components/shared/date-calendar";
+import { CalendarHeatmap } from "@/components/spending/calendar-heatmap";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSharedTransactions, type SharedTransaction } from "@/lib/api";
@@ -63,18 +63,18 @@ export default function SharedPage() {
       {/* 월 합계는 한도 카드가 맡는다(한도가 없어도 합계는 보이게). 달력엔 일별만. */}
       <DateBudgetCard month={month} linked={false} spentWhenUnset={monthTotal} />
 
-      <Card className="gap-0 px-3 pt-4 pb-3">
-        {txns === null ? (
-          <Skeleton className="h-72 w-full" />
-        ) : (
-          <DateCalendar
-            month={month}
-            byDay={byDay}
-            selectedDay={selectedDay}
-            onSelect={setSelectedDay}
-          />
-        )}
-      </Card>
+      {/* 지출 탭과 같은 달력. 칸은 칠하지 않고 금액 글자 색으로 적음~많음을 보여준다. */}
+      {txns === null ? (
+        <Skeleton className="h-96 w-full rounded-xl" />
+      ) : (
+        <CalendarHeatmap
+          month={month}
+          byDay={byDay}
+          variant="text"
+          selectedDay={selectedDay}
+          onSelect={setSelectedDay}
+        />
+      )}
 
       <div className="grid gap-3">
         <div className="flex items-center justify-between px-1">
