@@ -114,3 +114,39 @@ def crosses_warning(previous_spent: int, status: dict) -> bool:
     was = previous_spent / limit
     now = status["usage"]
     return was < WARN_RATIO <= now
+
+
+def _won(n: int) -> str:
+    return f"{n:,}원"
+
+
+def format_status_message(status: dict | None, *, saved: str | None = None) -> str:
+    """봇이 보낼 현황 텍스트. saved 가 있으면 방금 저장한 내역을 먼저 붙인다."""
+    if status is None:
+        return (
+            "공유 예산이 아직 설정되지 않았어요.\n"
+            "대시보드에서 '데이트' 카테고리와 이번 달 한도를 먼저 만들어 주세요."
+        )
+
+    lines: list[str] = []
+    if saved:
+        lines.append(f"기록했어요 — {saved}")
+
+    head = {"over": "한도를 넘었어요", "warning": "한도가 얼마 안 남았어요"}.get(
+        status["state"], f"{status['month']} 데이트비용"
+    )
+    lines.append(head)
+    lines.append(
+        f"{_won(status['spent'])} / {_won(status['limit'])}"
+        f"  ({status['usage_percent']}%)"
+    )
+    remaining = status["remaining"]
+    lines.append(
+        f"{_won(remaining)} 남음" if remaining >= 0 else f"{_won(-remaining)} 초과"
+    )
+
+    if status["by_payer"]:
+        lines.append("")
+        for row in status["by_payer"]:
+            lines.append(f"  {row['name']}  {_won(row['amount'])}")
+    return "\n".join(lines)

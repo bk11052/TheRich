@@ -44,6 +44,7 @@ class MemberUpdate(SQLModel):
     name: str | None = None
     telegram_chat_id: int | None = None
     is_self: bool | None = None
+    color: str | None = None
     active: bool | None = None
 
 

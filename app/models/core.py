@@ -23,6 +23,8 @@ class MemberBase(SQLModel):
     name: str
     telegram_chat_id: int | None = Field(default=None, index=True, unique=True)
     is_self: bool = False  # 앱 주인 본인
+    # 대시보드·요약에서 사람을 구분하는 색(#RRGGBB). 텔레그램 /color 로도 바꾼다.
+    color: str | None = None
     active: bool = True
 
 
