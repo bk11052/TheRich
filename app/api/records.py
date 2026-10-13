@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.core import Transaction
 from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.schemas import PhotoRead, PlaceRead, RecordRead, TagRead
 from app.services.period import month_range
 
-router = APIRouter(prefix="/records", tags=["records"])
+router = APIRouter(prefix="/records", tags=["records"], dependencies=[Depends(require_owner)])
 
 
 @router.get("", response_model=list[RecordRead])

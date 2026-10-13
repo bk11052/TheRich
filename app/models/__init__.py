@@ -11,12 +11,14 @@ from app.models.core import (
     CategoryRule,
     Member,
     NetWorthSnapshot,
+    Session,
     Transaction,
 )
 from app.models.lifelog import Photo, Place, Tag, TransactionTag
 
 __all__ = [
     "Member",
+    "Session",
     "Account",
     "Category",
     "CategoryRule",

@@ -48,7 +48,7 @@ alembic upgrade head                              # apply (creates ./therich.db)
 uvicorn app.main:app --reload      # docs at http://127.0.0.1:8000/docs
 ```
 
-- **No test suite yet.** Verification has been ad-hoc with `fastapi.testclient.TestClient` against `app.main:app`. (The `httpx2` deprecation warning it prints is harmless.)
+- **Tests**: `pytest` (see `requirements-dev.txt`). `tests/conftest.py` gives each test a fresh in-memory SQLite through `dependency_overrides`, plus `anon_client` / `client` (owner) / `partner_client` fixtures.
 - No linter/formatter configured.
 - Settings (`DATABASE_URL`, `APP_NAME`) load from `.env` via `app/config.py`; both default sensibly, so `.env` is optional for local dev.
 
@@ -91,6 +91,38 @@ Both come from SQLite lacking real `ALTER TABLE`, so `render_as_batch` rebuilds 
 2. **Batch mode rejects unnamed constraints** — autogenerate emits `create_foreign_key(None, ...)`, which raises `Constraint must have a name`. Name it explicitly, and use the same name in `downgrade`.
 
 A migration that fails midway can leave `member`-style partial tables and `_alembic_tmp_<table>` behind while `alembic_version` stays on the old revision. Drop those leftovers before retrying, and verify the fix with a **down-then-up round trip on a copy of the DB**, not on `therich.db`.
+
+### Authentication and roles
+
+The API was fully open until the partner needed dashboard access. Hiding tabs in the
+frontend would have been meaningless — anyone who can load the page can also request
+`/accounts` directly — so the split is enforced server-side.
+
+- **`Member.role`** is `owner` or `partner`. `owner` reaches everything; `partner`
+  reaches **only `/shared/*`**.
+- **Default is deny.** Every router carries `dependencies=[Depends(require_owner)]`;
+  `/shared` lowers it to `require_member` and `/auth` is open. A router added without
+  thinking is therefore owner-only, not public. `tests/test_auth.py` reads the OpenAPI
+  schema and probes every GET route anonymously, so a route that forgets auth fails.
+- **Sessions**: a random token in an httpOnly cookie; the DB stores only its SHA-256
+  hash, so a leaked database cannot be replayed as a login. Logout deletes the row,
+  not just the cookie.
+- **Passwords**: stdlib `hashlib.scrypt`, serialised as `scrypt$n$r$p$salt$hash` so the
+  parameters travel with the value. `password_hash` is `exclude=True` on the model and
+  absent from `MemberRead`, so it cannot leak through the API.
+- **Non-human clients** (the Telegram bot) send `Authorization: Bearer $SERVICE_TOKEN`
+  and resolve to the owner. The token lives in `.env`.
+- `/shared/members` returns only `id`/`name`/`color` — a partner has no reason to see
+  anyone's `telegram_chat_id` or role.
+
+Accounts are managed from the CLI, never over HTTP, and passwords are prompted rather
+than passed as arguments so they stay out of shell history:
+
+```bash
+python -m app.manage list
+python -m app.manage set-password <name>
+python -m app.manage add-partner <name>
+```
 
 ### Conventions & gotchas
 

@@ -7,6 +7,7 @@ from app.models.base import (
     AccountType,
     CategoryKind,
     MatchType,
+    MemberRole,
     TimestampMixin,
     TxnSource,
     TxnType,
@@ -25,12 +26,26 @@ class MemberBase(SQLModel):
     is_self: bool = False  # 앱 주인 본인
     # 대시보드·요약에서 사람을 구분하는 색(#RRGGBB). 텔레그램 /color 로도 바꾼다.
     color: str | None = None
+    # 접근 범위. owner 만 자산·거래 전체를 볼 수 있고 partner 는 공유 예산만 본다.
+    role: MemberRole = MemberRole.partner
     active: bool = True
 
 
 class Member(MemberBase, TimestampMixin, table=True):
     __tablename__ = "member"
     id: int | None = Field(default=None, primary_key=True)
+    # 로그인 비밀번호. 스키마(MemberRead)에 없으므로 API 로 새어나가지 않는다.
+    password_hash: str | None = Field(default=None, exclude=True)
+
+
+class Session(TimestampMixin, table=True):
+    """로그인 세션. 토큰 원문이 아니라 해시만 저장해 DB 가 새도 세션을 못 쓰게 한다."""
+
+    __tablename__ = "session"
+    id: int | None = Field(default=None, primary_key=True)
+    member_id: int = Field(foreign_key="member.id", index=True)
+    token_hash: str = Field(index=True, unique=True)
+    expires_at: datetime = Field(index=True)
 
 
 # ---------- Account ----------

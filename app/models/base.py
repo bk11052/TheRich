@@ -57,6 +57,13 @@ class MatchType(str, Enum):
     exact = "exact"
 
 
+class MemberRole(str, Enum):
+    """owner = 앱 주인(전체 접근). partner = 공유 예산만 볼 수 있는 동반자."""
+
+    owner = "owner"
+    partner = "partner"
+
+
 class BenefitKind(str, Enum):
     accrue = "accrue"  # 적립
     discount = "discount"  # 할인

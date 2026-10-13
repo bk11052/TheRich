@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.core import Transaction
 from app.models.lifelog import Tag, TransactionTag
 from app.schemas import (
@@ -14,7 +15,7 @@ from app.schemas import (
 from app.services.classify import classify
 from app.services.period import month_range
 
-router = APIRouter(prefix="/transactions", tags=["transactions"])
+router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=TransactionRead, status_code=201)

@@ -3,12 +3,13 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.base import TxnType
 from app.models.core import Budget, Transaction
 from app.schemas import BudgetCreate, BudgetRead, BudgetUpdate
 from app.services.period import month_range
 
-router = APIRouter(prefix="/budgets", tags=["budgets"])
+router = APIRouter(prefix="/budgets", tags=["budgets"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=BudgetRead, status_code=201)

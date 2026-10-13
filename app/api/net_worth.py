@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.core import NetWorthSnapshot
 from app.schemas import (
     NetWorthCurrent,
@@ -12,7 +13,7 @@ from app.schemas import (
 )
 from app.services.networth import capture_snapshot, compute_current
 
-router = APIRouter(prefix="/net-worth", tags=["net-worth"])
+router = APIRouter(prefix="/net-worth", tags=["net-worth"], dependencies=[Depends(require_owner)])
 
 
 @router.get("/current", response_model=NetWorthCurrent)

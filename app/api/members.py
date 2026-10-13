@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.core import Member
 from app.schemas import MemberCreate, MemberRead, MemberUpdate
 
-router = APIRouter(prefix="/members", tags=["members"])
+router = APIRouter(prefix="/members", tags=["members"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=MemberRead, status_code=201)

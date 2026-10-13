@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.cards import Card, CardBenefit
 from app.schemas import (
     BestCard,
@@ -16,7 +17,7 @@ from app.schemas import (
 )
 from app.services import cards as cards_service
 
-router = APIRouter(prefix="/cards", tags=["cards"])
+router = APIRouter(prefix="/cards", tags=["cards"], dependencies=[Depends(require_owner)])
 
 
 def _current_month() -> str:

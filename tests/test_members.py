@@ -29,8 +29,12 @@ def test_list_excludes_inactive_by_default(client: TestClient):
     created = client.post("/members", json={"name": "탈퇴자"}).json()
     client.patch(f"/members/{created['id']}", json={"active": False})
 
-    assert client.get("/members").json() == []
-    assert len(client.get("/members", params={"active_only": False}).json()) == 1
+    def names(active_only: bool) -> set[str]:
+        rows = client.get("/members", params={"active_only": active_only}).json()
+        return {m["name"] for m in rows}
+
+    assert "탈퇴자" not in names(True)
+    assert "탈퇴자" in names(False)
 
 
 def test_get_missing_member_returns_404(client: TestClient):

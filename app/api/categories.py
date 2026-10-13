@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.core import Category
 from app.schemas import CategoryCreate, CategoryRead, CategoryUpdate
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories", tags=["categories"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=CategoryRead, status_code=201)

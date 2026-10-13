@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.lifelog import Tag
 from app.schemas import TagCreate, TagRead, TagUpdate
 
-router = APIRouter(prefix="/tags", tags=["tags"])
+router = APIRouter(prefix="/tags", tags=["tags"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=TagRead, status_code=201)

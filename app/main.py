@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     accounts,
+    auth,
     budgets,
     cards,
     categories,
@@ -51,6 +52,7 @@ app.add_middleware(
 )
 
 for module in (
+    auth,
     accounts,
     categories,
     category_rules,

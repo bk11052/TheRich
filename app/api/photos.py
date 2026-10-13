@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.lifelog import Photo
 from app.schemas import PhotoRead
 
-router = APIRouter(prefix="/photos", tags=["photos"])
+router = APIRouter(prefix="/photos", tags=["photos"], dependencies=[Depends(require_owner)])
 
 # 업로드 저장 위치 (프로젝트 루트 기준). main.py 에서 /uploads 로 정적 서빙.
 UPLOAD_DIR = Path("uploads")

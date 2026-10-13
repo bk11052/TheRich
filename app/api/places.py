@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.deps import require_owner
 from app.models.lifelog import Place
 from app.schemas import PlaceCreate, PlaceRead, PlaceUpdate
 from app.services import geocode
 
-router = APIRouter(prefix="/places", tags=["places"])
+router = APIRouter(prefix="/places", tags=["places"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=PlaceRead, status_code=201)

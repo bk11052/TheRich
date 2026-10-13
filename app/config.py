@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     # 더 이상 봇이 쓰지 않는다(수신자는 member 테이블에서 읽음). 구버전 .env 호환용.
     telegram_chat_id: str | None = None
+    # 텔레그램 봇처럼 사람이 아닌 클라이언트가 API 를 쓸 때의 토큰.
+    # Authorization: Bearer <값> 으로 보내면 owner 권한을 얻는다.
+    service_token: str | None = None
     telegram_default_account_id: int | None = None  # 기록할 기본 계좌 (미설정 시 자동)
     api_base_url: str = "http://127.0.0.1:8000"  # 봇이 호출할 백엔드
 

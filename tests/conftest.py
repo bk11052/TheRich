@@ -30,11 +30,38 @@ def session_fixture():
     engine.dispose()
 
 
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
+OWNER_PASSWORD = "owner-pass-123"
+PARTNER_PASSWORD = "partner-pass-123"
+
+
+@pytest.fixture(name="anon_client")
+def anon_client_fixture(session: Session):
+    """로그인하지 않은 클라이언트. 권한이 실제로 막는지 보는 데 쓴다."""
     app.dependency_overrides[get_session] = lambda: session
     # with 문을 쓰지 않으면 lifespan(=APScheduler 기동)이 돌지 않는다. 테스트에 불필요.
     yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="client")
+def client_fixture(session: Session, owner):
+    """owner 로 로그인된 클라이언트. 대부분의 테스트가 쓰는 기본값."""
+    app.dependency_overrides[get_session] = lambda: session
+    c = TestClient(app)
+    res = c.post("/auth/login", json={"name": owner.name, "password": OWNER_PASSWORD})
+    assert res.status_code == 200, "테스트 설정 오류: owner 로그인 실패"
+    yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="partner_client")
+def partner_client_fixture(session: Session, partner):
+    """동반자로 로그인된 클라이언트."""
+    app.dependency_overrides[get_session] = lambda: session
+    c = TestClient(app)
+    res = c.post("/auth/login", json={"name": partner.name, "password": PARTNER_PASSWORD})
+    assert res.status_code == 200, "테스트 설정 오류: partner 로그인 실패"
+    yield c
     app.dependency_overrides.clear()
 
 
@@ -108,3 +135,34 @@ def date_budget(session: Session, client: TestClient):
         "category_id": cat.id, "period_month": "2026-10", "amount": 500_000,
     })
     return cat, 500_000
+
+
+from app.models.base import MemberRole  # noqa: E402
+from app.services.auth import hash_password  # noqa: E402
+
+
+@pytest.fixture
+def owner(session: Session) -> Member:
+    m = Member(
+        name="주인",
+        role=MemberRole.owner,
+        is_self=True,
+        password_hash=hash_password(OWNER_PASSWORD),
+    )
+    session.add(m)
+    session.commit()
+    session.refresh(m)
+    return m
+
+
+@pytest.fixture
+def partner(session: Session) -> Member:
+    m = Member(
+        name="동반자",
+        role=MemberRole.partner,
+        password_hash=hash_password(PARTNER_PASSWORD),
+    )
+    session.add(m)
+    session.commit()
+    session.refresh(m)
+    return m
