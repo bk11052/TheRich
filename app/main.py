@@ -11,10 +11,12 @@ from app.api import (
     cards,
     categories,
     category_rules,
+    members,
     net_worth,
     photos,
     places,
     records,
+    shared,
     tags,
     transactions,
 )
@@ -60,6 +62,8 @@ for module in (
     photos,
     records,
     cards,
+    members,
+    shared,
 ):
     app.include_router(module.router)
 

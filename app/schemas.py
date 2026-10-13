@@ -20,6 +20,7 @@ from app.models.base import (
 )
 from app.models.cards import CardBase, CardBenefitBase
 from app.models.core import (
+    MemberBase,
     AccountBase,
     BudgetBase,
     CategoryBase,
@@ -29,6 +30,23 @@ from app.models.core import (
 
 
 # ---------- Account ----------
+class MemberCreate(MemberBase):
+    pass
+
+
+class MemberRead(MemberBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class MemberUpdate(SQLModel):
+    name: str | None = None
+    telegram_chat_id: int | None = None
+    is_self: bool | None = None
+    active: bool | None = None
+
+
 class AccountCreate(AccountBase):
     pass
 
@@ -69,6 +87,7 @@ class CategoryUpdate(SQLModel):
     icon: str | None = None
     color: str | None = None
     is_fixed: bool | None = None
+    is_shared: bool | None = None
     sort_order: int | None = None
 
 
@@ -114,6 +133,7 @@ class TransactionUpdate(SQLModel):
     memo: str | None = None
     source: TxnSource | None = None
     place_id: int | None = None
+    payer_id: int | None = None
 
 
 # ---------- Budget ----------

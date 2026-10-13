@@ -80,3 +80,31 @@ def make_rule(session: Session):
         return obj
 
     return _make
+
+
+from app.models.core import Member  # noqa: E402
+
+
+@pytest.fixture
+def make_member(session: Session):
+    def _make(name: str, chat_id: int | None = None, is_self: bool = False) -> Member:
+        obj = Member(name=name, telegram_chat_id=chat_id, is_self=is_self)
+        session.add(obj)
+        session.commit()
+        session.refresh(obj)
+        return obj
+
+    return _make
+
+
+@pytest.fixture
+def date_budget(session: Session, client: TestClient):
+    """공유 카테고리 '데이트' + 2026-10 한도 50만원. (category, limit) 반환."""
+    cat = Category(name="데이트", is_shared=True)
+    session.add(cat)
+    session.commit()
+    session.refresh(cat)
+    client.post("/budgets", json={
+        "category_id": cat.id, "period_month": "2026-10", "amount": 500_000,
+    })
+    return cat, 500_000

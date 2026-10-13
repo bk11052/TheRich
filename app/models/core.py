@@ -16,6 +16,21 @@ from app.models.base import (
 # API 입출력 스키마(Create/Read/Update)는 app/schemas.py 가 *Base 를 상속해 정의.
 
 
+# ---------- Member ----------
+# 공유 예산을 함께 쓰는 사람. 텔레그램 chat_id 를 사람에 매핑하는 역할도 겸한다
+# (등록되지 않은 chat_id 는 봇이 거절 — 봇 username 만 알면 누구나 말을 걸 수 있으므로).
+class MemberBase(SQLModel):
+    name: str
+    telegram_chat_id: int | None = Field(default=None, index=True, unique=True)
+    is_self: bool = False  # 앱 주인 본인
+    active: bool = True
+
+
+class Member(MemberBase, TimestampMixin, table=True):
+    __tablename__ = "member"
+    id: int | None = Field(default=None, primary_key=True)
+
+
 # ---------- Account ----------
 class AccountBase(SQLModel):
     name: str
@@ -42,6 +57,8 @@ class CategoryBase(SQLModel):
     icon: str | None = None
     color: str | None = None
     is_fixed: bool = False  # 고정지출 힌트
+    # 둘이 함께 쓰는 예산인지(데이트비용 등). 이 카테고리의 Budget 이 공유 한도가 된다.
+    is_shared: bool = False
     sort_order: int = 0
 
 
@@ -77,6 +94,8 @@ class TransactionBase(SQLModel):
     memo: str | None = None
     source: TxnSource = TxnSource.manual
     place_id: int | None = Field(default=None, foreign_key="place.id")
+    # 공유 지출에서 실제로 결제한 사람. 정산은 하지 않고 기여 내역만 보여준다.
+    payer_id: int | None = Field(default=None, foreign_key="member.id", index=True)
 
 
 class Transaction(TransactionBase, TimestampMixin, table=True):

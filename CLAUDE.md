@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-TheRich is a personal (single-user) asset-management dashboard backend. Current scope is **Phase 1: net worth + spending (가계부)**. Stack: **FastAPI + SQLModel + Alembic**, SQLite for now (PostgreSQL later — keep schema/queries portable). A Next.js PWA frontend and a Telegram bot are planned but not in this repo yet.
+TheRich is a personal asset-management dashboard backend. It is **single-user for everything except one shared budget**: the owner and one partner log 데이트비용 to a common monthly limit (see *Shared budget* below). Everything else — net worth, portfolio, other spending — stays private to the owner. Current scope is **Phase 1: net worth + spending (가계부)**. Stack: **FastAPI + SQLModel + Alembic**, SQLite for now (PostgreSQL later — keep schema/queries portable). A Next.js PWA frontend and a Telegram bot are planned but not in this repo yet.
 
 Design rationale, roadmap, and product/UX decisions live in Claude's persistent memory (`therich-project`, `therich-features`, `therich-ai-cost`, `therich-design`, `user-devices`) — consult it for the "why" behind choices.
 
@@ -58,11 +58,11 @@ Layered — one responsibility per package:
 
 - **`app/models/`** — SQLModel persistence.
   - `base.py`: `TimestampMixin` + **all enums** (`AccountType`, `AccountSide`, `TxnType`, `TxnSource`, `CategoryKind`, `MatchType`) — single source of truth.
-  - `core.py`: finance tables — `account`, `category`, `category_rule`, `transaction`, `budget`, `net_worth_snapshot`.
+  - `core.py`: finance tables — `member`, `account`, `category`, `category_rule`, `transaction`, `budget`, `net_worth_snapshot`.
   - `lifelog.py`: 맛집/추억 tables — `place`, `photo`, `tag`, `transaction_tag`.
   - `__init__.py` **imports every table** so `SQLModel.metadata` is fully populated — Alembic depends on this.
 - **`app/schemas.py`** — API contracts (`*Create` / `*Read` / `*Update`). Routers use these; **table models are never exposed directly**.
-- **`app/services/`** — domain logic (`classify.py` = category rule engine, `period.py` = month range helper).
+- **`app/services/`** — domain logic (`classify.py` = category rule engine, `shared_budget.py` = 데이트비용 aggregation, `period.py` = month range helper).
 - **`app/api/`** — one router module per resource, wired in `app/main.py`.
 - **`alembic/`** — migrations. `env.py` sets the target to `SQLModel.metadata` and injects `DATABASE_URL` from `app.config.settings`; `script.py.mako` imports `sqlmodel`; `render_as_batch` is on for SQLite.
 
@@ -73,6 +73,24 @@ Each entity is defined once as **`XxxBase(SQLModel)`** (shared editable fields) 
 - API: `XxxCreate(XxxBase)`, `XxxRead(XxxBase)` (+ `id`/timestamps), `XxxUpdate(SQLModel)` (all fields optional) in `schemas.py`.
 
 To add/change an entity: edit the Base in `models/core.py` → mirror it in `schemas.py` → add/adjust the router → run the Alembic autogenerate + upgrade cycle. Because columns live on the Base, refactors that don't change columns produce **no migration**.
+
+### Shared budget (데이트비용)
+
+Two people log to one monthly limit. The model reuses what already existed instead of adding a parallel budget system:
+
+- `Category.is_shared=True` marks the shared category. Its `Budget` row for a month **is** the shared limit, so `/budgets` and `/budgets/status` keep working unchanged.
+- `Member` maps a person to a `telegram_chat_id`. The bot accepts input **only from registered chat_ids** — a Telegram bot answers anyone who finds its username, so without this anybody could write to the ledger.
+- `Transaction.payer_id` records who actually paid. Contributions are shown per person but **no settlement (1/N) is computed** — that was an explicit product decision.
+- `services/shared_budget.py` derives state: `ok` / `warning` (>= `WARN_RATIO`, 0.8) / `over` (>= 1.0). `crosses_warning()` exists so the bot warns on the *first* crossing only rather than on every later expense.
+
+### Alembic on SQLite — two traps hit in practice
+
+Both come from SQLite lacking real `ALTER TABLE`, so `render_as_batch` rebuilds the table:
+
+1. **A new `NOT NULL` column needs `server_default`** when the table already has rows, or you get `Cannot add a NOT NULL column with default value NULL`. Add `server_default=sa.false()` (etc.) in the migration; the model default still governs new inserts.
+2. **Batch mode rejects unnamed constraints** — autogenerate emits `create_foreign_key(None, ...)`, which raises `Constraint must have a name`. Name it explicitly, and use the same name in `downgrade`.
+
+A migration that fails midway can leave `member`-style partial tables and `_alembic_tmp_<table>` behind while `alembic_version` stays on the old revision. Drop those leftovers before retrying, and verify the fix with a **down-then-up round trip on a copy of the DB**, not on `therich.db`.
 
 ### Conventions & gotchas
 
