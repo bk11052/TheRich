@@ -232,7 +232,7 @@ export default function LoginPage() {
               <p
                 id="login-error"
                 role="alert"
-                className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive"
+                className="flex items-start gap-2 text-[13px] text-destructive"
               >
                 <AlertCircle className="mt-px size-4 shrink-0" />
                 {error}
