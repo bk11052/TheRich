@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Eye, EyeOff, Loader2, TrendingUp } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -141,13 +141,10 @@ export default function LoginPage() {
       </div>
 
       <div className="login-content relative mx-auto w-full max-w-sm px-4">
-        {/* 배경색과 같은 은은한 그림자로, 이미지가 덜 사라진 기기에서도 글자 가장자리를 세운다. */}
-        <div className="mb-6 flex flex-col items-center text-center [text-shadow:0_1px_14px_var(--background)]">
-          <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand/70 text-brand-foreground shadow-lg shadow-brand/25 ring-1 ring-white/20">
-            <TrendingUp className="size-7" strokeWidth={2.25} />
-          </span>
-          <h1 className="text-[28px] font-semibold tracking-tight">TheRich</h1>
-          <p className="mt-1 text-[14px] text-muted-foreground">로그인하고 이어서 보세요</p>
+        <div className="mb-7 text-center">
+          <h1 className="login-wordmark text-[46px] leading-none font-bold tracking-[-0.035em]">
+            TheRich
+          </h1>
         </div>
 
         {/* method/action 과 name 속성은 iCloud 키체인 등 비밀번호 관리자가 폼을 알아보게 하는 신호다. */}
