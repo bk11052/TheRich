@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { AppShell } from "@/components/app-shell";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { BlurProvider } from "@/components/providers/blur-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -33,10 +34,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full">
-        <BlurProvider>
-          <AppShell>{children}</AppShell>
-          <Toaster position="top-center" />
-        </BlurProvider>
+        <AuthProvider>
+          <BlurProvider>
+            <AppShell>{children}</AppShell>
+            <Toaster position="top-center" />
+          </BlurProvider>
+        </AuthProvider>
       </body>
     </html>
   );

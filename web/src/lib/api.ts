@@ -4,8 +4,11 @@
  * 타입은 app/schemas.py 의 *Read 를 미러링.
  */
 
+// 호스트를 프론트와 같은 localhost 로 맞춘다.
+// SameSite=Lax 세션 쿠키는 cross-site 요청에 실리지 않는데, localhost 와 127.0.0.1 은
+// 같은 기계라도 **다른 사이트**로 취급된다(포트 차이는 무관). 섞으면 로그인이 풀린다.
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:8000";
 
 // ---------- enums (백엔드 app/models/base.py) ----------
 export type TxnType = "expense" | "income" | "transfer";
@@ -113,15 +116,38 @@ export interface NetWorthSnapshot {
 }
 
 // ---------- fetch 래퍼 ----------
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly path: string,
+    readonly body: string,
+  ) {
+    super(`API ${status} ${path}${body ? `: ${body}` : ""}`);
+    this.name = "ApiError";
+  }
+
+  /** 로그인이 안 됐거나 만료됨 */
+  get isUnauthenticated() {
+    return this.status === 401;
+  }
+
+  /** 로그인은 됐지만 권한이 없음 */
+  get isForbidden() {
+    return this.status === 403;
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     cache: "no-store",
+    // 세션 쿠키를 주고받으려면 필수. 없으면 매 요청이 비로그인으로 간다.
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     ...init,
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`API ${res.status} ${path}${body ? `: ${body}` : ""}`);
+    throw new ApiError(res.status, path, body);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -457,3 +483,44 @@ export async function getSharedBudget(month: string): Promise<SharedBudget | nul
     return null;
   }
 }
+
+
+// ---------- 인증 ----------
+
+export type AuthStatus =
+  | { authenticated: false }
+  | {
+      authenticated: true;
+      id: number;
+      name: string;
+      role: "owner" | "partner";
+      color: string | null;
+    };
+
+export const getAuthStatus = () => api<AuthStatus>("/auth/status");
+
+export const login = (name: string, password: string) =>
+  api<Member>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ name, password }),
+  });
+
+export const logout = () => api<void>("/auth/logout", { method: "POST" });
+
+// ---------- 공유 영역 (partner 도 접근 가능) ----------
+
+export type SharedMember = { id: number; name: string; color: string | null };
+
+export type SharedTransaction = {
+  id: number;
+  amount: number;
+  occurred_at: string;
+  merchant: string | null;
+  payer_id: number | null;
+  source: TxnSource;
+};
+
+export const getSharedMembers = () => api<SharedMember[]>("/shared/members");
+
+export const getSharedTransactions = (month: string) =>
+  api<SharedTransaction[]>(`/shared/transactions?month=${month}`);
