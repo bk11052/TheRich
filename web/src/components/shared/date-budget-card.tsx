@@ -67,7 +67,7 @@ export function DateBudgetCard({ month = currentMonth() }: { month?: string }) {
   const note = LABEL[data.state];
 
   return (
-    <Link href="/spending">
+    <Link href="/shared">
       <Card className="h-full gap-0 p-5 transition-colors hover:bg-accent/40">
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">

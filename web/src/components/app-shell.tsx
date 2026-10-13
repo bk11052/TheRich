@@ -20,17 +20,23 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useBlur } from "@/components/providers/blur-provider";
 import { canAccess, homeFor, type Role } from "@/lib/roles";
 
+// 데이트비용·기록 두 탭은 owner 와 partner 가 같은 화면을 본다. 나란히 둬서 묶음으로 읽히게.
 const OWNER_TABS = [
   { href: "/", label: "홈", icon: Home },
   { href: "/spending", label: "지출", icon: Wallet },
   { href: "/assets", label: "자산", icon: Landmark },
+  { href: "/shared", label: "데이트비용", icon: Heart },
   { href: "/records", label: "기록", icon: Camera },
   { href: "/more", label: "더보기", icon: Menu },
 ] as const;
 
-// partner 는 공유 예산 한 화면만 본다. 서버가 나머지를 403 으로 막으므로
+// partner 는 공유 예산·우리 기록·자기 설정만 본다. 서버가 나머지를 403 으로 막으므로
 // 여기 목록은 "안 보이게" 하는 편의이지 보안 장치가 아니다.
-const PARTNER_TABS = [{ href: "/shared", label: "데이트비용", icon: Heart }] as const;
+const PARTNER_TABS = [
+  { href: "/shared", label: "데이트비용", icon: Heart },
+  { href: "/records", label: "기록", icon: Camera },
+  { href: "/more", label: "더보기", icon: Menu },
+] as const;
 
 function tabsFor(role: Role) {
   return role === "partner" ? PARTNER_TABS : OWNER_TABS;

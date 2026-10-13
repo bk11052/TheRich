@@ -10,7 +10,7 @@ import { RecordDetail } from "@/components/records/record-detail";
 import { RecordsMap } from "@/components/records/records-map";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getRecords, getTags, photoUrl, type RecordItem, type Tag } from "@/lib/api";
+import { getSharedRecords, getSharedTags, photoUrl, type RecordItem, type Tag } from "@/lib/api";
 import { categoryIcon } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,8 @@ function shortDate(iso: string): string {
   return `${d.getMonth() + 1}.${d.getDate()}`;
 }
 
+// 기록 탭은 두 사람이 같은 화면을 본다 — 데이트비용 거래의 사진·장소·태그만.
+// owner 도 /shared 경로를 쓰므로 누가 보든 같은 데이터가 같은 범위로 나온다.
 export default function RecordsPage() {
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -30,7 +32,7 @@ export default function RecordsPage() {
 
   const reload = useCallback(() => {
     setLoading(true);
-    Promise.all([getRecords(activeTag != null ? { tag_id: activeTag } : {}), getTags()])
+    Promise.all([getSharedRecords(activeTag != null ? { tag_id: activeTag } : {}), getSharedTags()])
       .then(([recs, tgs]) => {
         setRecords(recs);
         setTags(tgs);

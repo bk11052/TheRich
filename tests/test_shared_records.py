@@ -241,3 +241,62 @@ def test_partner_cannot_rename_or_promote_self(partner_client: TestClient, sessi
     session.refresh(partner)
     assert partner.name == original
     assert partner.role.value == "partner"
+
+
+# ---------- 태그 이름 노출 ----------
+
+def _tag_personal(session: Session, txn_id: int, name: str):
+    from app.models.lifelog import Tag, TransactionTag
+
+    tag = Tag(name=name)
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+    session.add(TransactionTag(transaction_id=txn_id, tag_id=tag.id))
+    session.commit()
+    return tag
+
+
+def test_tags_used_only_on_personal_spending_are_hidden(
+    partner_client: TestClient, session, txns
+):
+    """태그 이름만으로도 사생활이 드러난다(예: '병원')."""
+    _, personal = txns
+    _tag_personal(session, personal.id, "병원")
+    partner_client.post("/shared/tags", json={"name": "놀이공원"})  # 방금 만든 태그는 보여야 함
+
+    names = {t["name"] for t in partner_client.get("/shared/tags").json()}
+
+    assert "병원" not in names
+    assert "놀이공원" in names
+
+
+def test_tag_on_shared_spending_is_visible_even_if_also_personal(
+    client: TestClient, partner_client: TestClient, session, txns
+):
+    shared, personal = txns
+    tag = _tag_personal(session, personal.id, "맛집")
+    client.put(f"/transactions/{shared.id}/tags", json={"tag_ids": [tag.id]})
+
+    names = {t["name"] for t in partner_client.get("/shared/tags").json()}
+
+    assert "맛집" in names
+
+
+def test_partner_cannot_attach_a_hidden_tag_by_id(partner_client: TestClient, session, txns):
+    """번호로 숨은 태그를 붙이면 그 순간 이름이 공유 기록에 드러난다 — 무시돼야 한다."""
+    shared, personal = txns
+    hidden = _tag_personal(session, personal.id, "면접")
+
+    res = partner_client.put(f"/shared/transactions/{shared.id}/tags", json={"tag_ids": [hidden.id]})
+
+    assert res.status_code == 200
+    assert res.json() == []
+    assert "면접" not in str(partner_client.get("/shared/records").json())
+
+
+def test_owner_still_sees_all_tags(client: TestClient, session, txns):
+    _, personal = txns
+    _tag_personal(session, personal.id, "병원")
+
+    assert "병원" in {t["name"] for t in client.get("/tags").json()}

@@ -2,8 +2,11 @@
 
 export type Role = "owner" | "partner";
 
-/** partner 가 들어갈 수 있는 경로. 그 외는 전부 /shared 로 돌려보낸다. */
-const PARTNER_PATHS = ["/shared"];
+// partner 가 들어갈 수 있는 경로.
+// /shared, /records 는 하위까지 허용. /more 는 **그 페이지만** — /more/budgets 같은
+// 하위 관리 화면은 owner 의 예산·카드·가계부 설정이라 막는다.
+const PARTNER_PREFIXES = ["/shared", "/records"];
+const PARTNER_EXACT = ["/more"];
 
 export function homeFor(role: Role): string {
   return role === "partner" ? "/shared" : "/";
@@ -11,5 +14,6 @@ export function homeFor(role: Role): string {
 
 export function canAccess(role: Role, pathname: string): boolean {
   if (role === "owner") return true;
-  return PARTNER_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (PARTNER_EXACT.includes(pathname)) return true;
+  return PARTNER_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }

@@ -62,7 +62,7 @@ Layered — one responsibility per package:
   - `lifelog.py`: 맛집/추억 tables — `place`, `photo`, `tag`, `transaction_tag`.
   - `__init__.py` **imports every table** so `SQLModel.metadata` is fully populated — Alembic depends on this.
 - **`app/schemas.py`** — API contracts (`*Create` / `*Read` / `*Update`). Routers use these; **table models are never exposed directly**.
-- **`app/services/`** — domain logic (`classify.py` = category rule engine, `shared_budget.py` = 데이트비용 aggregation, `period.py` = month range helper).
+- **`app/services/`** — domain logic (`classify.py` = category rule engine, `shared_budget.py` = 데이트비용 aggregation, `lifelog.py` = records/photos/places/tags shared by owner and `/shared` routes, `period.py` = month range helper).
 - **`app/api/`** — one router module per resource, wired in `app/main.py`.
 - **`alembic/`** — migrations. `env.py` sets the target to `SQLModel.metadata` and injects `DATABASE_URL` from `app.config.settings`; `script.py.mako` imports `sqlmodel`; `render_as_batch` is on for SQLite.
 
@@ -100,6 +100,16 @@ frontend would have been meaningless — anyone who can load the page can also r
 
 - **`Member.role`** is `owner` or `partner`. `owner` reaches everything; `partner`
   reaches **only `/shared/*`**.
+- **The 데이트비용 and 기록 tabs are the same screen for both people.** Both read and write
+  through `/shared/*` (the owner is allowed there too), so they see identical data with
+  identical scope: records attached to shared-category transactions only. The owner-only
+  `/records`, `/photos`, `/places`, `/tags` routes still exist and are tested but the web
+  app no longer calls them. 더보기 differs by role: the partner sees only her own colour.
+- **What `/shared` deliberately withholds**: any transaction outside the shared category
+  (404, not 403); existing place ids (a partner can only create-and-attach, or she could
+  enumerate the owner's private places onto a shared record); tags used only on personal
+  transactions (tag names alone can be private); SVG uploads (served from the API origin,
+  so script inside could call the API with the owner's session).
 - **Default is deny.** Every router carries `dependencies=[Depends(require_owner)]`;
   `/shared` lowers it to `require_member` and `/auth` is open. A router added without
   thinking is therefore owner-only, not public. `tests/test_auth.py` reads the OpenAPI

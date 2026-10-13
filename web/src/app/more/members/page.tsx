@@ -17,19 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createMember, getMembers, updateMember, type Member } from "@/lib/api";
+import { HEX_COLOR as HEX, MEMBER_PALETTE as PALETTE } from "@/lib/palette";
 import { cn } from "@/lib/utils";
-
-/** 백엔드 services/members.py 의 DEFAULT_PALETTE 와 같은 값. */
-const PALETTE = [
-  "#2f6df6",
-  "#e5484d",
-  "#2e9e5b",
-  "#b05cd6",
-  "#e08c00",
-  "#0f9fb0",
-];
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);

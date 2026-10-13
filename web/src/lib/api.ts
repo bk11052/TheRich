@@ -333,40 +333,27 @@ export interface RecordItem {
   tags: Tag[];
 }
 
-export const getTags = () => api<Tag[]>("/tags");
-
-export const createTag = (payload: { name: string; color?: string | null }) =>
-  api<Tag>("/tags", { method: "POST", body: JSON.stringify(payload) });
-
-export const getRecords = (params: { tag_id?: number; month?: string } = {}) =>
-  api<RecordItem[]>(`/records${qs(params)}`);
-
-export const createPlace = (payload: {
-  name: string;
-  region?: string | null;
-  address?: string | null;
-}) => api<Place>("/places", { method: "POST", body: JSON.stringify(payload) });
-
-export const setTransactionTags = (txnId: number, tag_ids: number[]) =>
-  api<Tag[]>(`/transactions/${txnId}/tags`, {
-    method: "PUT",
-    body: JSON.stringify({ tag_ids }),
-  });
-
 /** 업로드된 사진의 절대 URL. file_path 는 "/uploads/<파일명>". */
 export function photoUrl(filePath: string): string {
   return `${API_BASE}${filePath}`;
 }
 
 /** 사진 업로드 (multipart). api() 는 JSON 전용이라 별도 구현. */
-export async function uploadPhoto(file: File, transactionId?: number): Promise<Photo> {
+/** multipart 업로드. api() 를 못 쓰는 이유: Content-Type 을 브라우저가 boundary 와 함께 정해야 한다. */
+async function postPhoto(path: string, file: File, transactionId?: number): Promise<Photo> {
   const fd = new FormData();
   fd.append("file", file);
   if (transactionId != null) fd.append("transaction_id", String(transactionId));
-  const res = await fetch(`${API_BASE}/photos`, { method: "POST", body: fd });
+  // api() 를 거치지 않으므로 세션 쿠키 전송을 여기서도 명시해야 한다.
+  // (빠져 있던 탓에 로그인 도입 후 사진 업로드가 401 로 실패했다)
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`사진 업로드 실패 ${res.status}${body ? `: ${body}` : ""}`);
+    throw new ApiError(res.status, path, body);
   }
   return res.json() as Promise<Photo>;
 }
@@ -524,3 +511,46 @@ export const getSharedMembers = () => api<SharedMember[]>("/shared/members");
 
 export const getSharedTransactions = (month: string) =>
   api<SharedTransaction[]>(`/shared/transactions?month=${month}`);
+
+
+// ---------- 공유 기록 (partner 도 접근 가능 — 데이트비용 거래만) ----------
+
+export const getSharedRecords = (params: { tag_id?: number; month?: string } = {}) =>
+  api<RecordItem[]>(`/shared/records${qs(params)}`);
+
+export const getSharedTags = () => api<Tag[]>("/shared/tags");
+
+export const createSharedTag = (payload: { name: string; color?: string | null }) =>
+  api<Tag>("/shared/tags", { method: "POST", body: JSON.stringify(payload) });
+
+export const setSharedTransactionTags = (txnId: number, tag_ids: number[]) =>
+  api<Tag[]>(`/shared/transactions/${txnId}/tags`, {
+    method: "PUT",
+    body: JSON.stringify({ tag_ids }),
+  });
+
+export const setSharedTransactionMemo = (txnId: number, memo: string | null) =>
+  api<{ id: number; memo: string | null }>(`/shared/transactions/${txnId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ memo }),
+  });
+
+/** 장소를 새로 만들어 붙인다. partner 는 기존 장소 번호를 지정할 수 없다(서버 정책). */
+export const attachSharedPlace = (
+  txnId: number,
+  payload: { name: string; region?: string | null },
+) =>
+  api<Place>(`/shared/transactions/${txnId}/place`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const uploadSharedPhoto = (file: File, transactionId: number) =>
+  postPhoto("/shared/photos", file, transactionId);
+
+export type SharedMe = { id: number; name: string; color: string | null; role: "owner" | "partner" };
+
+export const getSharedMe = () => api<SharedMe>("/shared/me");
+
+export const updateSharedMe = (payload: { color: string }) =>
+  api<SharedMe>("/shared/me", { method: "PATCH", body: JSON.stringify(payload) });

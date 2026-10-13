@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PartnerMore } from "@/components/more/partner-more";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +47,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   },
 ];
 
-export default function MorePage() {
+function OwnerMore() {
   return (
     <div className="mx-auto grid w-full max-w-xl gap-5">
       {SECTIONS.map((section) => (
@@ -109,4 +111,11 @@ export default function MorePage() {
       </p>
     </div>
   );
+}
+
+export default function MorePage() {
+  const { status } = useAuth();
+  // partner 의 더보기에는 owner 의 예산·카드·청약 등을 두지 않는다 — 본인 설정만.
+  if (status?.authenticated && status.role === "partner") return <PartnerMore />;
+  return <OwnerMore />;
 }

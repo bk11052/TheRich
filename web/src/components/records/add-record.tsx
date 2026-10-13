@@ -21,19 +21,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  createPlace,
-  createTag,
-  getTransactions,
-  setTransactionTags,
-  updateTransaction,
-  uploadPhoto,
+  attachSharedPlace,
+  createSharedTag,
+  getSharedTransactions,
+  setSharedTransactionMemo,
+  setSharedTransactionTags,
+  uploadSharedPhoto,
+  type SharedTransaction,
   type Tag,
-  type Transaction,
 } from "@/lib/api";
 import { formatManwon } from "@/lib/format";
+import { addMonth, currentMonth } from "@/lib/month";
 import { cn } from "@/lib/utils";
 
-function txnLabel(t: Transaction): string {
+/** 기록은 보통 최근 데이트에 붙이므로 이번 달·지난달 데이트비용 거래를 후보로. */
+async function recentSharedTxns(): Promise<SharedTransaction[]> {
+  const now = currentMonth();
+  const [a, b] = await Promise.all([
+    getSharedTransactions(now),
+    getSharedTransactions(addMonth(now, -1)),
+  ]);
+  return [...a, ...b];
+}
+
+function txnLabel(t: SharedTransaction): string {
   const d = new Date(t.occurred_at);
   return `${t.merchant ?? "(미상)"} · ${d.getMonth() + 1}.${d.getDate()} · ₩${formatManwon(t.amount)}`;
 }
@@ -49,7 +60,7 @@ export function AddRecord({
   tags: Tag[];
   onCreated: () => void;
 }) {
-  const [txns, setTxns] = useState<Transaction[]>([]);
+  const [txns, setTxns] = useState<SharedTransaction[]>([]);
   const [txnId, setTxnId] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [placeName, setPlaceName] = useState("");
@@ -63,7 +74,7 @@ export function AddRecord({
   useEffect(() => {
     if (!open) return;
     setAllTags(tags);
-    getTransactions({ limit: 50 })
+    recentSharedTxns()
       .then(setTxns)
       .catch(() => toast.error("거래를 불러오지 못했어요"));
   }, [open, tags]);
@@ -100,7 +111,7 @@ export function AddRecord({
     const name = newTag.trim();
     if (!name) return;
     try {
-      const t = await createTag({ name });
+      const t = await createSharedTag({ name });
       setAllTags((prev) => [...prev, t]);
       setSelected((prev) => new Set(prev).add(t.id));
       setNewTag("");
@@ -117,25 +128,17 @@ export function AddRecord({
     const id = Number(txnId);
     setSaving(true);
     try {
-      let placeId: number | undefined;
       if (placeName.trim()) {
-        const place = await createPlace({
-          name: placeName.trim(),
-          region: region.trim() || null,
-        });
-        placeId = place.id;
+        await attachSharedPlace(id, { name: placeName.trim(), region: region.trim() || null });
       }
-      if (placeId != null || memo.trim()) {
-        await updateTransaction(id, {
-          ...(placeId != null ? { place_id: placeId } : {}),
-          ...(memo.trim() ? { memo: memo.trim() } : {}),
-        });
+      if (memo.trim()) {
+        await setSharedTransactionMemo(id, memo.trim());
       }
       for (const f of files) {
-        await uploadPhoto(f, id);
+        await uploadSharedPhoto(f, id);
       }
       if (selected.size > 0) {
-        await setTransactionTags(id, [...selected]);
+        await setSharedTransactionTags(id, [...selected]);
       }
       toast.success("기록을 추가했어요");
       reset();

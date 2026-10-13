@@ -6,7 +6,7 @@ from sqlmodel import Session, SQLModel, select
 from app.db import get_session
 from app.deps import require_member
 from app.models.core import Member, Transaction
-from app.models.lifelog import Photo, Place, Tag
+from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.schemas import (
     PhotoRead,
     PlaceCreate,
@@ -24,6 +24,7 @@ from app.services.lifelog import (
     list_records,
     replace_tags,
     save_photo,
+    tags_of,
 )
 from app.services.members import normalize_color
 from app.services.period import month_range
@@ -118,9 +119,30 @@ def shared_records(
     return list_records(session, tag_id=tag_id, month=month, category_id=category.id)
 
 
+def _visible_tags(session: Session) -> list[Tag]:
+    """partner 에게 보여줄 태그. 태그는 공용이라 이름만으로도 owner 의 사생활
+    (예: '병원', '면접')이 드러날 수 있다. 그래서 **개인 거래에만 붙은 태그는 숨긴다.**
+    공유 거래에 붙었거나 아직 아무 데도 안 붙은 태그(방금 만든 것 포함)만 보인다."""
+    category = get_shared_category(session)
+    shared_ids = set()
+    if category is not None:
+        shared_ids = set(
+            session.exec(select(Transaction.id).where(Transaction.category_id == category.id)).all()
+        )
+    used_on: dict[int, set[int]] = {}
+    for link in session.exec(select(TransactionTag)).all():
+        used_on.setdefault(link.tag_id, set()).add(link.transaction_id)
+    out = []
+    for tag in session.exec(select(Tag).order_by(Tag.id)).all():
+        txns = used_on.get(tag.id, set())
+        if not txns or txns & shared_ids:
+            out.append(tag)
+    return out
+
+
 @router.get("/tags", response_model=list[TagRead])
 def shared_tags(session: Session = Depends(get_session)) -> list[Tag]:
-    return list(session.exec(select(Tag).order_by(Tag.id)).all())
+    return _visible_tags(session)
 
 
 @router.post("/tags", response_model=TagRead, status_code=201)
@@ -137,7 +159,10 @@ def shared_set_tags(
     txn_id: int, payload: TransactionTagsSet, session: Session = Depends(get_session)
 ) -> list[Tag]:
     _shared_txn(session, txn_id)
-    return replace_tags(session, txn_id, payload.tag_ids)
+    # 숨겨진 태그 번호를 직접 넣어 붙이면, 붙는 순간 그 이름이 공유 기록에 드러난다.
+    allowed = {t.id for t in _visible_tags(session)}
+    replace_tags(session, txn_id, [i for i in payload.tag_ids if i in allowed])
+    return tags_of(session, txn_id)
 
 
 class SharedTxnPatch(SQLModel):
