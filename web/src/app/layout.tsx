@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { BlurProvider } from "@/components/providers/blur-provider";
+import { ThemeSync } from "@/components/providers/theme-sync";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
   ],
 };
 
-// 시스템 다크모드 반영 (FOUC 방지용 블로킹 스크립트)
+// 시스템 다크모드 첫 반영 (FOUC 방지용 블로킹 스크립트). 이후 변경은 ThemeSync 가 따라간다.
 const themeScript = `(function(){try{var d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 
 export default function RootLayout({
@@ -34,6 +35,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full">
+        <ThemeSync />
         <AuthProvider>
           <BlurProvider>
             <AppShell>{children}</AppShell>

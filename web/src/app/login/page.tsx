@@ -121,13 +121,32 @@ export default function LoginPage() {
   const canSubmit = !busy && name.trim().length > 0 && password.length > 0;
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand/70 text-brand-foreground shadow-lg shadow-brand/20">
+    // 이미지 높이·제목 위치·페이드는 globals.css 의 .login-* 에서 한 묶음으로 관리한다.
+    <div className="login-page relative min-h-dvh overflow-x-hidden pb-10">
+      {/* 장식용 이미지 — 스크린리더가 읽을 정보가 없으므로 숨긴다. */}
+      <div
+        aria-hidden
+        className="login-hero login-hero-mask pointer-events-none absolute inset-x-0 top-0 mx-auto w-full max-w-md select-none"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- 정적 장식 이미지 하나라 최적화 파이프라인이 필요 없다 */}
+        <img
+          src="/images/login-hero.webp"
+          alt=""
+          width={900}
+          height={1080}
+          fetchPriority="high"
+          decoding="async"
+          className="size-full object-cover object-[50%_15%]"
+        />
+      </div>
+
+      <div className="login-content relative mx-auto w-full max-w-sm px-4">
+        {/* 배경색과 같은 은은한 그림자로, 이미지가 덜 사라진 기기에서도 글자 가장자리를 세운다. */}
+        <div className="mb-6 flex flex-col items-center text-center [text-shadow:0_1px_14px_var(--background)]">
+          <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand/70 text-brand-foreground shadow-lg shadow-brand/25 ring-1 ring-white/20">
             <TrendingUp className="size-7" strokeWidth={2.25} />
           </span>
-          <h1 className="text-[26px] font-semibold tracking-tight">TheRich</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight">TheRich</h1>
           <p className="mt-1 text-[14px] text-muted-foreground">로그인하고 이어서 보세요</p>
         </div>
 

@@ -196,3 +196,43 @@ body.privacy-on [data-private] {
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
+
+/* 네이티브 UI(스크롤바·자동완성 배경·폼 컨트롤)도 테마를 따르게 한다.
+   없으면 다크 화면에서 자동완성된 입력칸만 흰 배경으로 튄다. */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+/* 로그인 상단 이미지: 아래로 갈수록 투명해져 페이지 배경(다크·라이트 무관)으로 녹아든다.
+   글자는 이 투명 구간 위에 놓이므로 이미지가 밝아도 묻히지 않는다.
+   --hero-h 하나로 이미지 높이와 제목 위치를 함께 정한다. 제목 블록(약 136px)이
+   이미지 아래쪽 끝, 즉 거의 투명해진 구간에 오도록 그만큼 끌어올린다. */
+.login-page {
+  --hero-h: min(56dvh, 520px);
+}
+.login-hero {
+  height: var(--hero-h);
+}
+.login-content {
+  padding-top: calc(var(--hero-h) - 136px);
+}
+.login-hero-mask {
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 88%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 88%);
+}
+/* 폭이 이미지보다 넓은 화면에선 좌우 경계선이 생기므로 옆도 부드럽게 지운다. */
+@media (min-width: 640px) {
+  .login-hero-mask {
+    -webkit-mask-image:
+      linear-gradient(to bottom, #000 30%, transparent 88%),
+      linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, #000 30%, transparent 88%),
+      linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+    mask-composite: intersect;
+  }
+}
