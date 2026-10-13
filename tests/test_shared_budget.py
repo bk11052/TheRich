@@ -92,46 +92,7 @@ def test_overspending_shows_negative_remaining(session: Session, client, account
 
 # ---------- 기여자 ----------
 
-def test_by_payer_splits_by_member_sorted_desc(
-    session: Session, client, account, date_budget, make_member
-):
-    cat, _ = date_budget
-    me = make_member("나", chat_id=111, is_self=True)
-    her = make_member("여자친구", chat_id=222)
-    _spend(client, account.id, cat.id, 50_000, payer_id=me.id)
-    _spend(client, account.id, cat.id, 30_000, payer_id=me.id)
-    _spend(client, account.id, cat.id, 120_000, payer_id=her.id)
 
-    by_payer = compute_status(session, "2026-10")["by_payer"]
-
-    assert [r["name"] for r in by_payer] == ["여자친구", "나"]
-    assert by_payer[0]["amount"] == 120_000
-    assert by_payer[1]["amount"] == 80_000
-
-
-def test_payerless_spending_is_labelled_unassigned(
-    session: Session, client, account, date_budget
-):
-    cat, _ = date_budget
-    _spend(client, account.id, cat.id, 40_000, payer_id=None)
-
-    by_payer = compute_status(session, "2026-10")["by_payer"]
-
-    assert by_payer[0]["name"] == "미지정"
-
-
-def test_by_payer_total_matches_spent(
-    session: Session, client, account, date_budget, make_member
-):
-    """기여 내역 합이 총 소진액과 어긋나면 화면에서 숫자가 안 맞는다."""
-    cat, _ = date_budget
-    me = make_member("나", chat_id=111)
-    _spend(client, account.id, cat.id, 70_000, payer_id=me.id)
-    _spend(client, account.id, cat.id, 30_000, payer_id=None)
-
-    s = compute_status(session, "2026-10")
-
-    assert sum(r["amount"] for r in s["by_payer"]) == s["spent"]
 
 
 # ---------- 경고 임계 통과 ----------
@@ -159,3 +120,34 @@ def test_api_returns_status(client: TestClient, account, date_budget):
 
 def test_api_404_when_not_configured(client: TestClient):
     assert client.get("/shared/budget", params={"month": "2026-10"}).status_code == 404
+
+
+# ---------- 사람 구분 없음 ----------
+
+def test_status_has_no_per_person_breakdown(session: Session, client, account, date_budget, make_member):
+    """누가 얼마 썼는지는 계산도 응답도 하지 않는다."""
+    cat, _ = date_budget
+    me = make_member("나", chat_id=111)
+    _spend(client, account.id, cat.id, 70_000, payer_id=me.id)
+
+    s = compute_status(session, "2026-10")
+
+    assert "by_payer" not in s
+    assert "나" not in str(s)
+
+
+def test_shared_transactions_hide_payer_and_income(
+    client, partner_client, account, date_budget, make_member
+):
+    cat, _ = date_budget
+    me = make_member("나", chat_id=111)
+    _spend(client, account.id, cat.id, 30_000, payer_id=me.id)
+    client.post("/transactions", json={
+        "account_id": account.id, "type": "income", "amount": 99_000,
+        "occurred_at": "2026-10-06T12:00:00", "category_id": cat.id,
+    })
+
+    rows = partner_client.get("/shared/transactions?month=2026-10").json()
+
+    assert [r["amount"] for r in rows] == [30_000]  # 수입은 빠진다
+    assert all("payer_id" not in r for r in rows)

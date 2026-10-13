@@ -30,7 +30,6 @@ from telegram.ext import (
 from app.config import settings
 from app.services import ocr
 from app.services.expense_parser import ParsedExpense, parse_expense, parse_receipt
-from app.services.members import normalize_color
 from app.services.shared_budget import format_status_message
 
 API = settings.api_base_url.rstrip("/")
@@ -62,12 +61,6 @@ async def _post(path: str, json: dict):
         r.raise_for_status()
         return r.json()
 
-
-async def _patch(path: str, json: dict):
-    async with _client() as c:
-        r = await c.patch(path, json=json)
-        r.raise_for_status()
-        return r.json()
 
 
 async def _resolve_member(chat_id: int) -> dict | None:
@@ -137,7 +130,6 @@ async def start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "  예) 스타벅스 5500\n"
         "영수증 사진을 보내도 읽어드려요.\n\n"
         "/month  이번 달 현황\n"
-        "/color  내 색 바꾸기 (예: /color 파랑)\n"
         "/chatid  이 채팅 id"
     )
 
@@ -157,28 +149,6 @@ async def month_cmd(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(await _status_text())
     except httpx.HTTPError:
         await update.message.reply_text("백엔드에 연결할 수 없어요. 서버가 켜져 있나요?")
-
-
-async def color_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    member = await _resolve_member(update.effective_chat.id)
-    if member is None:
-        await _deny(update)
-        return
-    raw = " ".join(ctx.args) if ctx.args else ""
-    color = normalize_color(raw)
-    if color is None:
-        await update.message.reply_text(
-            f"지금 내 색: {member.get('color') or '없음'}\n"
-            "바꾸려면 색 이름이나 hex 를 붙여주세요.\n"
-            "  예) /color 파랑   /color #ff8800"
-        )
-        return
-    try:
-        await _patch(f"/members/{member['id']}", {"color": color})
-    except httpx.HTTPError:
-        await update.message.reply_text("색 변경 실패 — 백엔드에 연결할 수 없어요.")
-        return
-    await update.message.reply_text(f"내 색을 {color} 로 바꿨어요.")
 
 
 async def _ask_confirm(
@@ -360,7 +330,6 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("chatid", chatid))
     app.add_handler(CommandHandler("month", month_cmd))
-    app.add_handler(CommandHandler("color", color_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

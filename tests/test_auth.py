@@ -22,7 +22,7 @@ OWNER_ONLY_GET = [
     "/cards",
     "/records",
 ]
-SHARED_GET = ["/shared/budget?month=2026-10", "/shared/members", "/shared/transactions?month=2026-10"]
+SHARED_GET = ["/shared/budget?month=2026-10", "/shared/transactions?month=2026-10"]
 
 
 # ---------- 로그인 ----------
@@ -142,15 +142,6 @@ def test_member_responses_never_include_password_hash(client: TestClient):
     assert "password_hash" not in body
     assert "scrypt$" not in body
 
-
-def test_shared_members_hides_chat_id_and_role(partner_client: TestClient, make_member):
-    make_member("상대", chat_id=999)
-
-    rows = partner_client.get("/shared/members").json()
-
-    assert rows, "멤버가 보여야 한다"
-    for row in rows:
-        assert set(row) == {"id", "name", "color"}
 
 
 def test_shared_transactions_exclude_personal_spending(

@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { Amount } from "@/components/amount";
 import { Card } from "@/components/ui/card";
 import { categoryIcon } from "@/lib/categories";
-import { useMembers } from "@/lib/use-members";
 import { cn } from "@/lib/utils";
 import type { Category, Transaction, TxnSource } from "@/lib/api";
 
@@ -32,8 +31,7 @@ export function TransactionList({
   transactions: Transaction[];
   categories: Map<number, Category>;
 }) {
-  // 결제자는 색으로만 구분한다 — 이름이나 사람별 합계는 드러내지 않기로 한 제품 결정.
-  const members = useMembers();
+
   const groups = useMemo(() => {
     const map = new Map<string, DayGroup>();
     for (const t of transactions) {
@@ -83,22 +81,14 @@ export function TransactionList({
               const cat = t.category_id != null ? categories.get(t.category_id) : undefined;
               const Icon = categoryIcon(cat?.name);
               const income = t.type === "income";
-              const payerColor =
-                t.payer_id != null ? members.get(t.payer_id)?.color : undefined;
+
               return (
                 <li
                   key={t.id}
                   className="flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0"
                 >
-                  <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <Icon className="size-[18px]" />
-                    {payerColor && (
-                      <span
-                        aria-hidden
-                        className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full ring-2 ring-background"
-                        style={{ backgroundColor: payerColor }}
-                      />
-                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">

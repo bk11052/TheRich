@@ -5,6 +5,7 @@ from sqlmodel import Session, SQLModel, select
 
 from app.db import get_session
 from app.deps import require_member
+from app.models.base import TxnType
 from app.models.core import Member, Transaction
 from app.models.lifelog import Photo, Place, Tag, TransactionTag
 from app.schemas import (
@@ -26,7 +27,6 @@ from app.services.lifelog import (
     save_photo,
     tags_of,
 )
-from app.services.members import normalize_color
 from app.services.period import month_range
 from app.services.shared_budget import compute_status, get_shared_category
 
@@ -51,24 +51,13 @@ def shared_budget_status(
     return status
 
 
-@router.get("/members")
-def shared_members(session: Session = Depends(get_session)) -> list[dict]:
-    """공유 화면에서 사람을 색으로 구분하기 위한 최소 정보.
-
-    telegram_chat_id·role 은 의도적으로 빼고 내려준다 — partner 가 볼 이유가 없다.
-    """
-    rows = session.exec(
-        select(Member).where(Member.active == True).order_by(Member.id)  # noqa: E712
-    ).all()
-    return [{"id": m.id, "name": m.name, "color": m.color} for m in rows]
-
-
 @router.get("/transactions")
 def shared_transactions(
     month: str = Query(..., description="YYYY-MM"),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """공유 카테고리 거래만. 개인 지출은 어떤 경우에도 섞이지 않는다."""
+    """공유 카테고리의 **지출**만. 개인 지출은 어떤 경우에도 섞이지 않는다.
+    누가 입력했는지(payer_id)는 내려주지 않는다 — 사람을 구분하지 않기로 했다."""
     category = get_shared_category(session)
     if category is None:
         return []
@@ -77,6 +66,7 @@ def shared_transactions(
         select(Transaction)
         .where(
             Transaction.category_id == category.id,
+            Transaction.type == TxnType.expense,
             Transaction.occurred_at >= start,
             Transaction.occurred_at < end,
         )
@@ -88,7 +78,6 @@ def shared_transactions(
             "amount": t.amount,
             "occurred_at": t.occurred_at.isoformat(),
             "merchant": t.merchant,
-            "payer_id": t.payer_id,
             "source": t.source.value,
         }
         for t in rows
@@ -227,25 +216,4 @@ async def shared_upload_photo(
 
 @router.get("/me")
 def shared_me(member: Member = Depends(require_member)) -> dict:
-    return {"id": member.id, "name": member.name, "color": member.color, "role": member.role.value}
-
-
-class SharedMePatch(SQLModel):
-    color: str
-
-
-@router.patch("/me")
-def shared_update_me(
-    payload: SharedMePatch,
-    member: Member = Depends(require_member),
-    session: Session = Depends(get_session),
-) -> dict:
-    """본인 색만 바꿀 수 있다. 이름은 로그인 아이디라 여기서 바꾸지 않는다."""
-    color = normalize_color(payload.color)
-    if color is None:
-        raise HTTPException(422, "색은 #RRGGBB 또는 색 이름(파랑·빨강 등)으로 주세요")
-    row = session.get(Member, member.id)
-    row.color = color
-    session.add(row)
-    session.commit()
-    return {"id": row.id, "name": row.name, "color": row.color, "role": row.role.value}
+    return {"id": member.id, "name": member.name, "role": member.role.value}

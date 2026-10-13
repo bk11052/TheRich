@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { ManageHeader } from "@/components/manage/page-header";
@@ -17,7 +17,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createMember, getMembers, updateMember, type Member } from "@/lib/api";
-import { HEX_COLOR as HEX, MEMBER_PALETTE as PALETTE } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function MembersPage() {
@@ -36,20 +35,6 @@ export default function MembersPage() {
   }, []);
 
   useEffect(reload, [reload]);
-
-  async function setColor(member: Member, color: string) {
-    if (!HEX.test(color)) return;
-    // 낙관적 반영 — 색 선택은 즉각 반응해야 고르는 맛이 난다.
-    setMembers((prev) =>
-      prev.map((m) => (m.id === member.id ? { ...m, color } : m)),
-    );
-    try {
-      await updateMember(member.id, { color });
-    } catch {
-      toast.error("색을 바꾸지 못했어요");
-      reload();
-    }
-  }
 
   async function rename(member: Member, next: string) {
     const trimmed = next.trim();
@@ -82,7 +67,7 @@ export default function MembersPage() {
     <div className="mx-auto grid w-full max-w-xl gap-4">
       <ManageHeader title="함께 쓰는 사람" />
       <p className="-mt-2 px-1 text-[13px] text-muted-foreground">
-        데이트비용을 같이 기록하는 사람과 색 구분
+        데이트비용을 같이 기록하는 사람
       </p>
 
       {loading ? (
@@ -92,11 +77,6 @@ export default function MembersPage() {
           {members.map((m) => (
             <Card key={m.id} className="gap-0 p-4">
               <div className="flex items-center gap-3">
-                <span
-                  aria-hidden
-                  className="size-3.5 shrink-0 rounded-full ring-1 ring-black/10"
-                  style={{ backgroundColor: m.color ?? "var(--muted-foreground)" }}
-                />
                 <Input
                   defaultValue={m.name}
                   onBlur={(e) => rename(m, e.target.value)}
@@ -107,30 +87,6 @@ export default function MembersPage() {
                     나
                   </span>
                 )}
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`색 ${c}`}
-                    onClick={() => setColor(m, c)}
-                    className={cn(
-                      "flex size-7 items-center justify-center rounded-full ring-1 ring-black/10 transition",
-                      m.color === c && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
-                    )}
-                    style={{ backgroundColor: c }}
-                  >
-                    {m.color === c && <Check className="size-3.5 text-white" />}
-                  </button>
-                ))}
-                <Input
-                  defaultValue={m.color ?? ""}
-                  placeholder="#2f6df6"
-                  onBlur={(e) => setColor(m, e.target.value.trim())}
-                  className="h-7 w-24 text-[12px] tabular-nums"
-                />
               </div>
 
               <p className="mt-2 text-[12px] text-muted-foreground">

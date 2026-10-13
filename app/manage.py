@@ -15,7 +15,6 @@ from app.db import engine
 from app.models.base import MemberRole
 from app.models.core import Member
 from app.services.auth import hash_password
-from app.services.members import next_unused_color
 
 
 def _prompt_password() -> str:
@@ -62,13 +61,12 @@ def cmd_add_partner(name: str) -> None:
         member = Member(
             name=name,
             role=MemberRole.partner,
-            color=next_unused_color(db),
             password_hash=hash_password(_prompt_password()),
         )
         db.add(member)
         db.commit()
         db.refresh(member)
-        print(f"동반자 '{member.name}' 추가 (id={member.id}, 색={member.color}).")
+        print(f"동반자 '{member.name}' 추가 (id={member.id}).")
         print("텔레그램을 쓰려면 그 사람이 봇에 /chatid 를 보낸 뒤 대시보드에서 등록하세요.")
 
 

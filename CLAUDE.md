@@ -80,7 +80,7 @@ Two people log to one monthly limit. The model reuses what already existed inste
 
 - `Category.is_shared=True` marks the shared category. Its `Budget` row for a month **is** the shared limit, so `/budgets` and `/budgets/status` keep working unchanged.
 - `Member` maps a person to a `telegram_chat_id`. The bot accepts input **only from registered chat_ids** — a Telegram bot answers anyone who finds its username, so without this anybody could write to the ledger.
-- `Transaction.payer_id` records who actually paid. Contributions are shown per person but **no settlement (1/N) is computed** — that was an explicit product decision.
+- `Transaction.payer_id` records who entered an expense, as provenance only. **Nothing aggregates or shows it**: no per-person totals, no settlement, no colours, and `/shared/*` responses omit it. People are deliberately indistinguishable in the UI — an explicit product decision. (`Member.color` is a leftover column; nothing reads or writes it.)
 - `services/shared_budget.py` derives state: `ok` / `warning` (>= `WARN_RATIO`, 0.8) / `over` (>= 1.0). `crosses_warning()` exists so the bot warns on the *first* crossing only rather than on every later expense.
 
 ### Alembic on SQLite — two traps hit in practice
@@ -104,12 +104,12 @@ frontend would have been meaningless — anyone who can load the page can also r
   through `/shared/*` (the owner is allowed there too), so they see identical data with
   identical scope: records attached to shared-category transactions only. The owner-only
   `/records`, `/photos`, `/places`, `/tags` routes still exist and are tested but the web
-  app no longer calls them. 더보기 differs by role: the partner sees only her own colour.
+  app no longer calls them. 더보기 differs by role: the partner sees only her name and how to connect the Telegram bot.
 - **What `/shared` deliberately withholds**: any transaction outside the shared category
   (404, not 403); existing place ids (a partner can only create-and-attach, or she could
   enumerate the owner's private places onto a shared record); tags used only on personal
   transactions (tag names alone can be private); SVG uploads (served from the API origin,
-  so script inside could call the API with the owner's session).
+  so script inside could call the API with the owner's session); income rows (the 데이트비용 tab is expenses only).
 - **Default is deny.** Every router carries `dependencies=[Depends(require_owner)]`;
   `/shared` lowers it to `require_member` and `/auth` is open. A router added without
   thinking is therefore owner-only, not public. `tests/test_auth.py` reads the OpenAPI
@@ -122,8 +122,6 @@ frontend would have been meaningless — anyone who can load the page can also r
   absent from `MemberRead`, so it cannot leak through the API.
 - **Non-human clients** (the Telegram bot) send `Authorization: Bearer $SERVICE_TOKEN`
   and resolve to the owner. The token lives in `.env`.
-- `/shared/members` returns only `id`/`name`/`color` — a partner has no reason to see
-  anyone's `telegram_chat_id` or role.
 
 Accounts are managed from the CLI, never over HTTP, and passwords are prompted rather
 than passed as arguments so they stay out of shell history:

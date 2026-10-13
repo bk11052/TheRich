@@ -1,15 +1,15 @@
 """공유 예산(데이트비용) 집계.
 
 `Category.is_shared=True` 인 카테고리의 해당 월 Budget 이 공유 한도가 되고,
-그 카테고리로 분류된 지출 합이 소진액이 된다. 정산(1/N)은 하지 않고
-'누가 얼마 냈는지' 기여 내역만 보여준다.
+그 카테고리로 분류된 지출 합이 소진액이 된다. 두 사람의 공동 수치만 다룬다 —
+누가 얼마 썼는지는 계산하지도 내려주지도 않는다(제품 결정).
 """
 
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.models.base import TxnType
-from app.models.core import Budget, Category, Member, Transaction
+from app.models.core import Budget, Category, Transaction
 from app.services.period import month_range
 
 # 이 비율을 넘어서는 순간 경고. 넘은 뒤에는 매번 알리지 않고 상태만 'over' 로 둔다.
@@ -21,36 +21,6 @@ def get_shared_category(session: Session) -> Category | None:
     return session.exec(
         select(Category).where(Category.is_shared == True).order_by(Category.id)  # noqa: E712
     ).first()
-
-
-def _spent_by_payer(session: Session, category_id: int, start, end) -> list[dict]:
-    rows = session.exec(
-        select(
-            Transaction.payer_id,
-            func.coalesce(func.sum(Transaction.amount), 0),
-        )
-        .where(
-            Transaction.category_id == category_id,
-            Transaction.type == TxnType.expense,
-            Transaction.occurred_at >= start,
-            Transaction.occurred_at < end,
-        )
-        .group_by(Transaction.payer_id)
-    ).all()
-
-    names = {
-        m.id: m.name for m in session.exec(select(Member)).all()
-    }
-    out = [
-        {
-            "member_id": payer_id,
-            "name": names.get(payer_id, "미지정") if payer_id else "미지정",
-            "amount": int(amount),
-        }
-        for payer_id, amount in rows
-        if amount
-    ]
-    return sorted(out, key=lambda r: -r["amount"])
 
 
 def compute_status(session: Session, month: str) -> dict | None:
@@ -99,7 +69,6 @@ def compute_status(session: Session, month: str) -> dict | None:
         "usage": usage,
         "usage_percent": round(usage * 100, 1) if usage is not None else None,
         "state": state,
-        "by_payer": _spent_by_payer(session, category.id, start, end),
     }
 
 
@@ -121,11 +90,7 @@ def _won(n: int) -> str:
 
 
 def format_status_message(status: dict | None, *, saved: str | None = None) -> str:
-    """봇이 보낼 현황 텍스트. saved 가 있으면 방금 저장한 내역을 먼저 붙인다.
-
-    **사람별 누적 합계는 넣지 않는다.** 결제자는 기록하지만 '누가 더 썼는지'를
-    보여주면 비교가 되므로, 합계는 둘의 공동 수치로만 표시한다.
-    """
+    """봇이 보낼 현황 텍스트. saved 가 있으면 방금 저장한 내역을 먼저 붙인다."""
     if status is None:
         return (
             "공유 예산이 아직 설정되지 않았어요.\n"
@@ -148,5 +113,4 @@ def format_status_message(status: dict | None, *, saved: str | None = None) -> s
     lines.append(
         f"{_won(remaining)} 남음" if remaining >= 0 else f"{_won(-remaining)} 초과"
     )
-    # 사람별 누적 합계는 일부러 넣지 않는다 — 누가 더 썼는지 드러내지 않기로 한 제품 결정.
     return "\n".join(lines)

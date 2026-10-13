@@ -425,7 +425,7 @@ export const deleteCardBenefit = (benefitId: number) =>
   api<void>(`/cards/benefits/${benefitId}`, { method: "DELETE" });
 
 // ---------- 공유 예산 (데이트비용) ----------
-// 사람별 누적 합계는 화면에 노출하지 않는다. 색은 개별 거래 구분용으로만 쓴다.
+// 두 사람의 공동 수치만 다룬다. 누가 얼마 썼는지는 서버가 내려주지도 않는다.
 
 export type Member = {
   id: number;
@@ -496,18 +496,13 @@ export const logout = () => api<void>("/auth/logout", { method: "POST" });
 
 // ---------- 공유 영역 (partner 도 접근 가능) ----------
 
-export type SharedMember = { id: number; name: string; color: string | null };
-
 export type SharedTransaction = {
   id: number;
   amount: number;
   occurred_at: string;
   merchant: string | null;
-  payer_id: number | null;
   source: TxnSource;
 };
-
-export const getSharedMembers = () => api<SharedMember[]>("/shared/members");
 
 export const getSharedTransactions = (month: string) =>
   api<SharedTransaction[]>(`/shared/transactions?month=${month}`);
@@ -548,9 +543,6 @@ export const attachSharedPlace = (
 export const uploadSharedPhoto = (file: File, transactionId: number) =>
   postPhoto("/shared/photos", file, transactionId);
 
-export type SharedMe = { id: number; name: string; color: string | null; role: "owner" | "partner" };
+export type SharedMe = { id: number; name: string; role: "owner" | "partner" };
 
 export const getSharedMe = () => api<SharedMe>("/shared/me");
-
-export const updateSharedMe = (payload: { color: string }) =>
-  api<SharedMe>("/shared/me", { method: "PATCH", body: JSON.stringify(payload) });
