@@ -252,3 +252,71 @@ def test_unset_service_token_never_matches(anon_client: TestClient, owner, monke
     for header in ("Bearer ", "Bearer None", "Bearer"):
         res = anon_client.get("/accounts", headers={"Authorization": header})
         assert res.status_code == 401, header
+
+
+# ---------- 로그인 실패 제한 ----------
+
+def _fail(client: TestClient, name: str, n: int):
+    for _ in range(n):
+        client.post("/auth/login", json={"name": name, "password": "wrong"})
+
+
+def test_login_locks_after_repeated_failures(anon_client: TestClient, owner):
+    from app.services.login_throttle import MAX_FAILURES
+
+    _fail(anon_client, owner.name, MAX_FAILURES)
+
+    # 잠긴 뒤에는 맞는 비밀번호도 막혀야 한다 — 아니면 잠금이 의미가 없다.
+    res = anon_client.post("/auth/login", json={"name": owner.name, "password": OWNER_PASSWORD})
+    assert res.status_code == 429
+    assert int(res.headers["Retry-After"]) > 0
+
+
+def test_fewer_failures_than_limit_do_not_lock(anon_client: TestClient, owner):
+    from app.services.login_throttle import MAX_FAILURES
+
+    _fail(anon_client, owner.name, MAX_FAILURES - 1)
+
+    res = anon_client.post("/auth/login", json={"name": owner.name, "password": OWNER_PASSWORD})
+    assert res.status_code == 200
+
+
+def test_success_resets_the_failure_count(anon_client: TestClient, owner):
+    from app.services.login_throttle import MAX_FAILURES
+
+    _fail(anon_client, owner.name, MAX_FAILURES - 1)
+    anon_client.post("/auth/login", json={"name": owner.name, "password": OWNER_PASSWORD})
+    _fail(anon_client, owner.name, MAX_FAILURES - 1)
+
+    res = anon_client.post("/auth/login", json={"name": owner.name, "password": OWNER_PASSWORD})
+    assert res.status_code == 200
+
+
+def test_unknown_names_are_throttled_too(anon_client: TestClient):
+    """없는 이름만 안 잠기면 '잠기는 이름 = 실제 계정'이 되어 계정을 떠볼 수 있다."""
+    from app.services.login_throttle import MAX_FAILURES
+
+    _fail(anon_client, "없는사람", MAX_FAILURES)
+
+    res = anon_client.post("/auth/login", json={"name": "없는사람", "password": "x"})
+    assert res.status_code == 429
+
+
+def test_lock_is_per_name_so_others_are_unaffected(anon_client: TestClient, owner, partner):
+    from app.services.login_throttle import MAX_FAILURES
+
+    from .conftest import PARTNER_PASSWORD
+
+    _fail(anon_client, owner.name, MAX_FAILURES)
+
+    res = anon_client.post("/auth/login", json={"name": partner.name, "password": PARTNER_PASSWORD})
+    assert res.status_code == 200
+
+
+def test_lock_expires():
+    from app.services import login_throttle as t
+
+    for i in range(t.MAX_FAILURES):
+        t.record_failure("1.2.3.4", "주인", now=1000.0 + i)
+    assert t.seconds_locked("1.2.3.4", "주인", now=1010.0) > 0
+    assert t.seconds_locked("1.2.3.4", "주인", now=1010.0 + t.LOCK_SECONDS) == 0

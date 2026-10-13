@@ -9,6 +9,7 @@ from app.db import get_session
 from app.deps import current_member, require_member
 from app.models.core import Member
 from app.schemas import MemberRead
+from app.services import login_throttle
 from app.services.auth import (
     SESSION_COOKIE,
     SESSION_TTL,
@@ -27,8 +28,20 @@ class LoginPayload(SQLModel):
 
 @router.post("/login", response_model=MemberRead)
 def login(
-    payload: LoginPayload, response: Response, db: DbSession = Depends(get_session)
+    payload: LoginPayload,
+    request: Request,
+    response: Response,
+    db: DbSession = Depends(get_session),
 ) -> Member:
+    ip = request.client.host if request.client else None
+    wait = login_throttle.seconds_locked(ip, payload.name)
+    if wait:
+        raise HTTPException(
+            429,
+            f"로그인 시도가 너무 많아요. {wait // 60 + 1}분 뒤에 다시 시도하세요.",
+            headers={"Retry-After": str(wait)},
+        )
+
     member = db.exec(
         select(Member).where(
             Member.name == payload.name,
@@ -38,8 +51,11 @@ def login(
     # 이름이 없는 경우와 비밀번호가 틀린 경우를 구분해서 알려주지 않는다
     # (존재하는 계정 이름을 떠볼 수 있게 되므로).
     if member is None or not verify_password(payload.password, member.password_hash):
+        # 없는 이름도 똑같이 센다. 아니면 '잠기는 이름 = 존재하는 이름'으로 떠볼 수 있다.
+        login_throttle.record_failure(ip, payload.name)
         raise HTTPException(401, "이름 또는 비밀번호가 올바르지 않습니다")
 
+    login_throttle.reset(ip, payload.name)
     token = create_session(db, member)
     response.set_cookie(
         SESSION_COOKIE,

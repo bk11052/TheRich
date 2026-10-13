@@ -1,87 +1,242 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogIn } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, TrendingUp } from "lucide-react";
 
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, login } from "@/lib/api";
 import { homeFor } from "@/lib/roles";
+import { cn } from "@/lib/utils";
+
+// 이름은 비밀이 아니고 매번 치기 번거로우니 기기에 기억해 둔다. 비밀번호는 절대 저장하지 않는다
+// — 그건 브라우저/키체인의 몫이고, 아래 autoComplete 속성이 그쪽에 신호를 준다.
+const LAST_NAME_KEY = "therich:last-login-name";
+
+function readLastName(): string {
+  try {
+    return localStorage.getItem(LAST_NAME_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastName(name: string) {
+  try {
+    localStorage.setItem(LAST_NAME_KEY, name);
+  } catch {
+    // 사파리 개인정보 보호 모드 등에서는 저장이 막힌다. 기억 못 해도 로그인엔 지장 없음.
+  }
+}
+
+/** 서버가 준 detail 을 우선 쓰고, 없으면 상태코드로 문장을 고른다. */
+function messageFor(err: unknown): string {
+  if (!(err instanceof ApiError)) {
+    return "서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.";
+  }
+  let detail = "";
+  try {
+    detail = JSON.parse(err.body)?.detail ?? "";
+  } catch {
+    // 본문이 JSON 이 아니면 기본 문구로.
+  }
+  if (err.status === 429) return detail || "시도가 너무 많아요. 잠시 뒤에 다시 해 주세요.";
+  if (err.status === 401) return "이름 또는 비밀번호가 올바르지 않아요.";
+  return "로그인하지 못했어요. 잠시 뒤에 다시 시도해 주세요.";
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const { status, refresh } = useAuth();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  // 이미 로그인된 채로 /login 에 들어오면 각자의 첫 화면으로 보낸다.
+  // 이미 로그인된 채로 /login 에 들어오면 각자의 첫 화면으로.
   useEffect(() => {
     if (status?.authenticated) router.replace(homeFor(status.role));
   }, [status, router]);
 
+  // 지난번 이름이 있으면 채우고 바로 비밀번호 칸으로 — 대부분 이름은 매번 같다.
+  useEffect(() => {
+    const last = readLastName();
+    if (last) {
+      setName(last);
+      passwordRef.current?.focus();
+    } else {
+      nameRef.current?.focus();
+    }
+  }, []);
+
+  // 보기 토글로 type 이 password→text 로 바뀌면 커서가 맨 앞으로 튄다. 그대로 두면
+  // "abc" 입력 → 보기 → "123" 입력이 "123abc" 가 된다.
+  // 실측: 커서는 JS 호출 없이 다음 레이아웃 계산 때 브라우저가 0 으로 되돌린다. 그래서
+  // 레이아웃을 먼저 강제로 일으켜 그 리셋을 지금 끝내 버린 뒤 끝으로 옮긴다.
+  // 다음 프레임 보정은 그래도 어긋나는 브라우저를 위한 안전망.
+  useLayoutEffect(() => {
+    const el = passwordRef.current;
+    if (!el || document.activeElement !== el) return;
+    const toEnd = () => {
+      if (document.activeElement !== el) return;
+      void el.offsetWidth; // 레이아웃 강제 — 브라우저의 커서 리셋을 여기서 먼저 일어나게 한다
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    };
+    toEnd();
+    const raf = requestAnimationFrame(toEnd);
+    return () => cancelAnimationFrame(raf);
+  }, [showPassword]);
+
+  function trackCapsLock(e: React.KeyboardEvent<HTMLInputElement>) {
+    setCapsLock(e.getModifierState?.("CapsLock") ?? false);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    const trimmed = name.trim();
+    if (busy || !trimmed || !password) return;
     setBusy(true);
     setError(null);
     try {
-      await login(name.trim(), password);
+      await login(trimmed, password);
+      saveLastName(trimmed);
       await refresh();
+      // 성공하면 위 useEffect 가 역할에 맞는 화면으로 보낸다.
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.isUnauthenticated
-          ? "이름 또는 비밀번호가 올바르지 않아요."
-          : "로그인할 수 없어요. 서버가 켜져 있는지 확인해 주세요.",
-      );
+      setError(messageFor(err));
       setBusy(false);
+      // 틀린 건 거의 항상 비밀번호이므로 그 칸을 비우고 다시 입력하게 한다.
+      setPassword("");
+      passwordRef.current?.focus();
     }
   }
 
-  return (
-    <div className="flex min-h-dvh items-center justify-center px-4">
-      <Card className="w-full max-w-sm gap-0 p-6">
-        <h1 className="text-[22px] font-semibold tracking-tight">TheRich</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          계속하려면 로그인하세요.
-        </p>
+  const canSubmit = !busy && name.trim().length > 0 && password.length > 0;
 
-        <form onSubmit={submit} className="mt-6 grid gap-3">
-          <Input
-            placeholder="이름"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="username"
-            autoFocus
-          />
-          <Input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-          {error && (
-            <p role="alert" className="text-[13px] text-destructive">
-              {error}
-            </p>
-          )}
-          <Button type="submit" disabled={busy || !name.trim() || !password}>
-            <LogIn className="size-4" />
-            {busy ? "확인 중…" : "로그인"}
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand/70 text-brand-foreground shadow-lg shadow-brand/20">
+            <TrendingUp className="size-7" strokeWidth={2.25} />
+          </span>
+          <h1 className="text-[26px] font-semibold tracking-tight">TheRich</h1>
+          <p className="mt-1 text-[14px] text-muted-foreground">로그인하고 이어서 보세요</p>
+        </div>
+
+        {/* method/action 과 name 속성은 iCloud 키체인 등 비밀번호 관리자가 폼을 알아보게 하는 신호다. */}
+        <form
+          onSubmit={submit}
+          method="post"
+          action="#"
+          noValidate
+          className="grid gap-4 rounded-2xl border bg-card p-6 shadow-sm"
+        >
+          <div className="grid gap-1.5">
+            <label htmlFor="login-name" className="text-[13px] font-medium">
+              이름
+            </label>
+            <Input
+              ref={nameRef}
+              id="login-name"
+              name="username"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="next"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(null);
+              }}
+              className="h-11 text-[15px]"
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <label htmlFor="login-password" className="text-[13px] font-medium">
+              비밀번호
+            </label>
+            <div className="relative">
+              <Input
+                ref={passwordRef}
+                id="login-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                enterKeyHint="go"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={trackCapsLock}
+                onKeyUp={trackCapsLock}
+                onBlur={() => setCapsLock(false)}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={
+                  [capsLock && "login-caps", error && "login-error"].filter(Boolean).join(" ") ||
+                  undefined
+                }
+                className="h-11 pr-11 text-[15px]"
+              />
+              <button
+                type="button"
+                // 마우스·터치로 누를 때 포커스를 입력칸에 남긴다. 안 그러면 폰에서는 키보드가
+                // 내려가고, 데스크톱에서는 이어서 친 글자와 Enter 가 이 버튼으로 간다.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+              </button>
+            </div>
+            {capsLock && (
+              <p id="login-caps" className="text-[12px] text-amber-600 dark:text-amber-500">
+                Caps Lock 이 켜져 있어요
+              </p>
+            )}
+          </div>
+
+          <div aria-live="polite" className={cn(!error && "sr-only")}>
+            {error && (
+              <p
+                id="login-error"
+                role="alert"
+                className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive"
+              >
+                <AlertCircle className="mt-px size-4 shrink-0" />
+                {error}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" disabled={!canSubmit} className="h-11 text-[15px]">
+            {busy ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                확인 중
+              </>
+            ) : (
+              "로그인"
+            )}
           </Button>
         </form>
 
-        <p className="mt-5 text-[12px] leading-relaxed text-muted-foreground">
-          계정은 터미널에서 만듭니다.
-          <br />
-          <code className="text-[11px]">python -m app.manage add-partner &lt;이름&gt;</code>
+        <p className="mt-6 text-center text-[12px] text-muted-foreground">
+          계정이 없다면 앱 주인에게 만들어 달라고 해 주세요.
         </p>
-      </Card>
+      </div>
     </div>
   );
 }

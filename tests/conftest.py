@@ -15,6 +15,16 @@ from app.db import get_session
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_throttle():
+    """실패 카운터는 모듈 전역이라 테스트끼리 섞이지 않게 매번 비운다."""
+    from app.services import login_throttle
+
+    login_throttle.clear_all()
+    yield
+    login_throttle.clear_all()
+
+
 @pytest.fixture(name="session")
 def session_fixture():
     # sqlite:// = 파일 없는 메모리 DB.
