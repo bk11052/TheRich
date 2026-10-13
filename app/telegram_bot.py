@@ -119,7 +119,7 @@ async def start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "데이트비용은 '가맹점 금액' 형식으로 보내면 저장돼요.\n"
         "  예) 스타벅스 5500\n"
         "영수증 사진을 보내도 읽어드려요.\n\n"
-        "/date  이번 달 현황\n"
+        "/month  이번 달 현황\n"
         "/color  내 색 바꾸기 (예: /color 파랑)\n"
         "/chatid  이 채팅 id"
     )
@@ -132,7 +132,7 @@ async def chatid(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def date_cmd(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def month_cmd(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if await _resolve_member(update.effective_chat.id) is None:
         await _deny(update)
         return
@@ -236,7 +236,7 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     merch = pending["merchant"] or "(미상)"
-    saved = f"{merch} {pending['amount']:,}원 · {member['name']}"
+    saved = f"{merch} {pending['amount']:,}원"
     try:
         await q.edit_message_text(await _status_text(saved=saved))
     except httpx.HTTPError:
@@ -306,7 +306,7 @@ def main() -> None:
     app = Application.builder().token(settings.telegram_bot_token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("chatid", chatid))
-    app.add_handler(CommandHandler("date", date_cmd))
+    app.add_handler(CommandHandler("month", month_cmd))
     app.add_handler(CommandHandler("color", color_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))

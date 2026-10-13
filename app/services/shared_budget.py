@@ -121,7 +121,11 @@ def _won(n: int) -> str:
 
 
 def format_status_message(status: dict | None, *, saved: str | None = None) -> str:
-    """봇이 보낼 현황 텍스트. saved 가 있으면 방금 저장한 내역을 먼저 붙인다."""
+    """봇이 보낼 현황 텍스트. saved 가 있으면 방금 저장한 내역을 먼저 붙인다.
+
+    **사람별 누적 합계는 넣지 않는다.** 결제자는 기록하지만 '누가 더 썼는지'를
+    보여주면 비교가 되므로, 합계는 둘의 공동 수치로만 표시한다.
+    """
     if status is None:
         return (
             "공유 예산이 아직 설정되지 않았어요.\n"
@@ -144,9 +148,5 @@ def format_status_message(status: dict | None, *, saved: str | None = None) -> s
     lines.append(
         f"{_won(remaining)} 남음" if remaining >= 0 else f"{_won(-remaining)} 초과"
     )
-
-    if status["by_payer"]:
-        lines.append("")
-        for row in status["by_payer"]:
-            lines.append(f"  {row['name']}  {_won(row['amount'])}")
+    # 사람별 누적 합계는 일부러 넣지 않는다 — 누가 더 썼는지 드러내지 않기로 한 제품 결정.
     return "\n".join(lines)

@@ -49,7 +49,8 @@ def test_message_warns_near_limit(session, client, account, date_budget):
     assert "얼마 안 남았" in format_status_message(compute_status(session, "2026-10"))
 
 
-def test_message_lists_each_payer(session, client, account, date_budget, make_member):
+def test_message_omits_per_person_totals(session, client, account, date_budget, make_member):
+    """결제자는 기록하지만 '누가 얼마 썼는지' 누적은 메시지에 넣지 않는다."""
     cat, _ = date_budget
     me = make_member("나", chat_id=111)
     her = make_member("여자친구", chat_id=222)
@@ -58,8 +59,9 @@ def test_message_lists_each_payer(session, client, account, date_budget, make_me
 
     msg = format_status_message(compute_status(session, "2026-10"))
 
-    assert "여자친구  90,000원" in msg
-    assert "나  50,000원" in msg
+    assert "여자친구" not in msg
+    assert "90,000원" not in msg
+    assert "140,000원" in msg  # 공동 합계만 보인다
 
 
 def test_saved_line_is_prepended(session, client, account, date_budget):
