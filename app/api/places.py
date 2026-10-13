@@ -6,25 +6,14 @@ from app.deps import require_owner
 from app.models.lifelog import Place
 from app.schemas import PlaceCreate, PlaceRead, PlaceUpdate
 from app.services import geocode
+from app.services.lifelog import create_place as make_place
 
 router = APIRouter(prefix="/places", tags=["places"], dependencies=[Depends(require_owner)])
 
 
 @router.post("", response_model=PlaceRead, status_code=201)
 def create_place(payload: PlaceCreate, session: Session = Depends(get_session)) -> Place:
-    data = payload.model_dump()
-    # 좌표 미지정 + 카카오 키 있으면 상호명으로 자동 지오코딩
-    if data.get("lat") is None and data.get("lng") is None:
-        hit = geocode.geocode_place(data["name"])
-        if hit:
-            for field in ("address", "region", "lat", "lng", "kakao_place_id"):
-                if data.get(field) is None and hit.get(field) is not None:
-                    data[field] = hit[field]
-    obj = Place(**data)
-    session.add(obj)
-    session.commit()
-    session.refresh(obj)
-    return obj
+    return make_place(session, payload.model_dump())
 
 
 @router.get("/search")

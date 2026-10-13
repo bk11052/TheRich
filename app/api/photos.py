@@ -1,6 +1,3 @@
-import uuid
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
@@ -8,13 +5,9 @@ from app.db import get_session
 from app.deps import require_owner
 from app.models.lifelog import Photo
 from app.schemas import PhotoRead
+from app.services.lifelog import OWNER_EXT, UPLOAD_DIR, PhotoRejected, save_photo
 
 router = APIRouter(prefix="/photos", tags=["photos"], dependencies=[Depends(require_owner)])
-
-# 업로드 저장 위치 (프로젝트 루트 기준). main.py 에서 /uploads 로 정적 서빙.
-UPLOAD_DIR = Path("uploads")
-ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".svg"}
-MAX_BYTES = 10 * 1024 * 1024  # 10MB
 
 
 @router.post("", response_model=PhotoRead, status_code=201)
@@ -23,23 +16,16 @@ async def upload_photo(
     transaction_id: int | None = Form(default=None),
     session: Session = Depends(get_session),
 ) -> Photo:
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in ALLOWED_EXT:
-        raise HTTPException(400, f"허용되지 않는 형식: {ext or '알수없음'}")
-
-    data = await file.read()
-    if len(data) > MAX_BYTES:
-        raise HTTPException(413, "파일이 너무 큽니다 (최대 10MB)")
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    fname = f"{uuid.uuid4().hex}{ext}"
-    (UPLOAD_DIR / fname).write_bytes(data)
-
-    obj = Photo(transaction_id=transaction_id, file_path=f"/uploads/{fname}")
-    session.add(obj)
-    session.commit()
-    session.refresh(obj)
-    return obj
+    try:
+        return save_photo(
+            session,
+            filename=file.filename,
+            data=await file.read(),
+            transaction_id=transaction_id,
+            allowed_ext=OWNER_EXT,
+        )
+    except PhotoRejected as e:
+        raise HTTPException(e.status, e.detail) from e
 
 
 @router.get("", response_model=list[PhotoRead])
