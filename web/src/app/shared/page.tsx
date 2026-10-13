@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, X } from "lucide-react";
 
 import { Amount } from "@/components/amount";
 import { MonthNav } from "@/components/month-nav";
@@ -9,7 +10,7 @@ import { DateBudgetCard } from "@/components/shared/date-budget-card";
 import { CalendarHeatmap } from "@/components/spending/calendar-heatmap";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSharedTransactions, type SharedTransaction } from "@/lib/api";
+import { getSharedRecords, getSharedTransactions, photoUrl, type SharedTransaction } from "@/lib/api";
 import { currentMonth, daysInMonth, parseMonth } from "@/lib/month";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -23,6 +24,8 @@ export default function SharedPage() {
   const [month, setMonth] = useState(currentMonth());
   const [txns, setTxns] = useState<SharedTransaction[] | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  // 거래 id → 첫 사진 경로. 추억이 있는 지출에 썸네일을 붙이기 위함.
+  const [thumbs, setThumbs] = useState<Map<number, string | null>>(new Map());
 
   useEffect(() => {
     setTxns(null);
@@ -30,6 +33,9 @@ export default function SharedPage() {
     getSharedTransactions(month)
       .then(setTxns)
       .catch(() => setTxns([]));
+    getSharedRecords({ month })
+      .then((recs) => setThumbs(new Map(recs.map((r) => [r.id, r.photos[0]?.file_path ?? null]))))
+      .catch(() => setThumbs(new Map()));
   }, [month]);
 
   const byDay = useMemo(() => {
@@ -120,23 +126,41 @@ export default function SharedPage() {
                 <Amount value={rows.reduce((s, t) => s + t.amount, 0)} compact />
               </div>
               <ul>
-                {rows.map((t) => (
-                  <li
-                    key={t.id}
-                    className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{t.merchant ?? "(미상)"}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {new Date(t.occurred_at).toLocaleTimeString("ko-KR", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                    <Amount value={-t.amount} className="text-sm font-semibold" />
-                  </li>
-                ))}
+                {rows.map((t) => {
+                  const hasRecord = thumbs.has(t.id);
+                  const thumb = thumbs.get(t.id);
+                  return (
+                    <li key={t.id} className="border-b last:border-b-0">
+                      {/* 누르면 기록 탭으로 — 추억이 있으면 그 기록이, 없으면 바로 추가할 수 있게 열린다 */}
+                      <Link
+                        href={`/records?txn=${t.id}&month=${month}`}
+                        aria-label={`${t.merchant ?? "지출"} ${hasRecord ? "기록 보기" : "기록 남기기"}`}
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+                      >
+                        {thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 썸네일
+                          <img
+                            src={photoUrl(thumb)}
+                            alt=""
+                            className="size-10 shrink-0 rounded-lg object-cover"
+                          />
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{t.merchant ?? "(미상)"}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(t.occurred_at).toLocaleTimeString("ko-KR", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                            {hasRecord && !thumb ? " · 기록 있음" : ""}
+                          </p>
+                        </div>
+                        <Amount value={-t.amount} className="text-sm font-semibold" />
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           ))

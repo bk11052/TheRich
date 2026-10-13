@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageIcon, LayoutGrid, Map, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,7 +10,15 @@ import { RecordDetail } from "@/components/records/record-detail";
 import { RecordsMap } from "@/components/records/records-map";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSharedRecords, getSharedTags, photoUrl, type RecordItem, type Tag } from "@/lib/api";
+import {
+  getSharedRecords,
+  getSharedTags,
+  getSharedTransactions,
+  photoUrl,
+  type RecordItem,
+  type SharedTransaction,
+  type Tag,
+} from "@/lib/api";
 import { categoryIcon } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +37,8 @@ export default function RecordsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<RecordItem | null>(null);
   const [view, setView] = useState<"gallery" | "map">("gallery");
+  const [linkedTxn, setLinkedTxn] = useState<SharedTransaction | null>(null);
+  const handledLink = useRef(false);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -42,6 +52,39 @@ export default function RecordsPage() {
   }, [activeTag]);
 
   useEffect(reload, [reload]);
+
+  // 데이트비용 탭에서 지출을 눌러 /records?txn=<id>&month=<YYYY-MM> 로 들어온 경우:
+  // 그 지출에 기록이 있으면 상세를 열고, 없으면 그 지출을 고른 채로 '기록 추가'를 연다.
+  useEffect(() => {
+    if (loading || handledLink.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const txnId = Number(params.get("txn"));
+    if (!txnId) return;
+    handledLink.current = true;
+
+    const existing = records.find((r) => r.id === txnId);
+    if (existing) {
+      setDetail(existing);
+      return;
+    }
+    const month = params.get("month");
+    if (!month) return;
+    getSharedTransactions(month)
+      .then((list) => {
+        const t = list.find((x) => x.id === txnId);
+        if (!t) return; // 공유 지출이 아니거나 사라졌으면 그냥 기록 목록을 보여준다
+        setLinkedTxn(t);
+        setAddOpen(true);
+      })
+      .catch(() => {});
+  }, [loading, records]);
+
+  // 연결로 연 창을 닫을 때 주소의 ?txn= 을 지운다. router.replace 를 쓰면 안 된다:
+  // App Router 는 검색어가 바뀌면 페이지를 새로 마운트해서, 열어 둔 창 상태가 날아간다.
+  // history.replaceState 는 주소만 바꾸고 화면은 그대로 둔다.
+  function clearLinkFromUrl() {
+    if (window.location.search) window.history.replaceState(null, "", "/records");
+  }
 
   return (
     <div className="grid gap-4">
@@ -131,8 +174,26 @@ export default function RecordsPage() {
         </div>
       )}
 
-      <AddRecord open={addOpen} onOpenChange={setAddOpen} tags={tags} onCreated={reload} />
-      <RecordDetail record={detail} onClose={() => setDetail(null)} />
+      <AddRecord
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) {
+            setLinkedTxn(null); // 다음에 '+ 기록'으로 열 땐 빈 상태로
+            clearLinkFromUrl();
+          }
+        }}
+        tags={tags}
+        onCreated={reload}
+        initialTxn={linkedTxn}
+      />
+      <RecordDetail
+        record={detail}
+        onClose={() => {
+          setDetail(null);
+          clearLinkFromUrl();
+        }}
+      />
     </div>
   );
 }

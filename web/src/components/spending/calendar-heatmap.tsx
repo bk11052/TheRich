@@ -155,29 +155,20 @@ export function CalendarHeatmap({
           })}
         </div>
 
-        {/* 범례 — 각 변형이 실제로 쓰는 표현과 같은 모양으로 */}
-        <div className={cn("mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground", variant === "text" && "px-2")}>
-          <span>적음</span>
-          {variant === "fill"
-            ? LEVEL_ALPHA.map((a, i) => (
-                <span
-                  key={i}
-                  className="size-3 rounded-[4px] border"
-                  style={{ backgroundColor: `color-mix(in oklch, var(--brand) ${a}, transparent)` }}
-                />
-              ))
-            : [1, 2, 3, 4].map((lv) => (
-                <span
-                  key={lv}
-                  aria-hidden
-                  className={cn("text-[11px] leading-none tabular-nums", lv === 4 && "font-semibold")}
-                  style={{ color: textColor(lv) }}
-                >
-                  ₩
-                </span>
-              ))}
-          <span>많음</span>
-        </div>
+        {/* 범례는 칸을 칠하는 지출 탭에만. 데이트비용(text)은 금액 글자 색이 그 자체로 읽힌다. */}
+        {variant === "fill" && (
+          <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+            <span>적음</span>
+            {LEVEL_ALPHA.map((a, i) => (
+              <span
+                key={i}
+                className="size-3 rounded-[4px] border"
+                style={{ backgroundColor: `color-mix(in oklch, var(--brand) ${a}, transparent)` }}
+              />
+            ))}
+            <span>많음</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

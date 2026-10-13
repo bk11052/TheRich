@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,11 +54,14 @@ export function AddRecord({
   onOpenChange,
   tags,
   onCreated,
+  initialTxn = null,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   tags: Tag[];
   onCreated: () => void;
+  /** 데이트비용 탭에서 지출을 눌러 들어온 경우, 그 거래를 미리 고른 채로 연다. */
+  initialTxn?: SharedTransaction | null;
 }) {
   const [txns, setTxns] = useState<SharedTransaction[]>([]);
   const [txnId, setTxnId] = useState("");
@@ -70,14 +73,31 @@ export function AddRecord({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [newTag, setNewTag] = useState("");
   const [saving, setSaving] = useState(false);
+  // 연결로 들어와 '자동으로' 고른 거래 id. 창은 닫아도 입력 중이던 내용을 남겨두지만,
+  // 이 자동 선택까지 남으면 다음에 '+ 기록'으로 열 때 엉뚱한 거래가 골라져 있다.
+  const autoTxnId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setAllTags(tags);
     recentSharedTxns()
-      .then(setTxns)
+      .then((list) => {
+        // 후보는 최근 두 달뿐이라, 더 오래된 지출을 눌러 왔으면 목록에 직접 끼워 넣는다.
+        // (목록에 없는 값은 선택 상자가 표시하지 못한다)
+        if (initialTxn && !list.some((t) => t.id === initialTxn.id)) list = [initialTxn, ...list];
+        setTxns(list);
+        if (initialTxn) {
+          autoTxnId.current = String(initialTxn.id);
+          setTxnId(autoTxnId.current);
+        } else if (autoTxnId.current) {
+          // 지난번 자동 선택이 그대로라면 비운다. 사용자가 직접 바꿨다면 그 선택은 존중.
+          const auto = autoTxnId.current;
+          autoTxnId.current = null;
+          setTxnId((cur) => (cur === auto ? "" : cur));
+        }
+      })
       .catch(() => toast.error("거래를 불러오지 못했어요"));
-  }, [open, tags]);
+  }, [open, tags, initialTxn]);
 
   // 미리보기 object URL
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
