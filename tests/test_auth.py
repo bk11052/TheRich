@@ -207,3 +207,48 @@ def test_status_is_public_and_reports_anonymous(anon_client: TestClient):
 
     assert res.status_code == 200
     assert res.json()["authenticated"] is False
+
+
+# ---------- 서비스 토큰 (텔레그램 봇) ----------
+
+@pytest.fixture
+def service_token(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "service_token", "svc-test-token")
+    return "svc-test-token"
+
+
+def test_service_token_grants_owner_access(anon_client: TestClient, owner, service_token):
+    res = anon_client.get(
+        "/accounts", headers={"Authorization": f"Bearer {service_token}"}
+    )
+
+    assert res.status_code == 200
+
+
+def test_wrong_service_token_is_rejected(anon_client: TestClient, owner, service_token):
+    res = anon_client.get("/accounts", headers={"Authorization": "Bearer nope"})
+
+    assert res.status_code == 401
+
+
+def test_service_token_without_any_owner_is_rejected(
+    anon_client: TestClient, service_token
+):
+    """owner 가 없으면 토큰이 맞아도 대신할 사람이 없으므로 거절."""
+    res = anon_client.get(
+        "/accounts", headers={"Authorization": f"Bearer {service_token}"}
+    )
+
+    assert res.status_code == 401
+
+
+def test_unset_service_token_never_matches(anon_client: TestClient, owner, monkeypatch):
+    """SERVICE_TOKEN 미설정일 때 빈 Bearer 로 뚫리면 안 된다."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "service_token", None)
+    for header in ("Bearer ", "Bearer None", "Bearer"):
+        res = anon_client.get("/accounts", headers={"Authorization": header})
+        assert res.status_code == 401, header

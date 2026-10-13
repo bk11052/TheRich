@@ -39,16 +39,33 @@ _cat_cache: dict[int, str] = {}
 
 
 # ---------- 백엔드 API 헬퍼 ----------
+# 봇은 사람이 아니라 세션 쿠키가 없으므로 서비스 토큰으로 인증한다.
+# 모든 호출이 이 클라이언트를 거치게 해서 헤더를 빠뜨리는 경로가 생기지 않게 한다.
+def _client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=API,
+        timeout=10,
+        headers={"Authorization": f"Bearer {settings.service_token}"},
+    )
+
+
 async def _get(path: str):
-    async with httpx.AsyncClient(timeout=10) as c:
-        r = await c.get(f"{API}{path}")
+    async with _client() as c:
+        r = await c.get(path)
         r.raise_for_status()
         return r.json()
 
 
 async def _post(path: str, json: dict):
-    async with httpx.AsyncClient(timeout=10) as c:
-        r = await c.post(f"{API}{path}", json=json)
+    async with _client() as c:
+        r = await c.post(path, json=json)
+        r.raise_for_status()
+        return r.json()
+
+
+async def _patch(path: str, json: dict):
+    async with _client() as c:
+        r = await c.patch(path, json=json)
         r.raise_for_status()
         return r.json()
 
@@ -157,9 +174,7 @@ async def color_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.patch(f"{API}/members/{member['id']}", json={"color": color})
-            r.raise_for_status()
+        await _patch(f"/members/{member['id']}", {"color": color})
     except httpx.HTTPError:
         await update.message.reply_text("색 변경 실패 — 백엔드에 연결할 수 없어요.")
         return
@@ -293,6 +308,27 @@ async def summary_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await ctx.bot.send_message(chat_id=m["telegram_chat_id"], text=text)
 
 
+def _check_backend() -> str | None:
+    """백엔드 연결과 서비스 토큰을 확인. 문제가 있으면 사람이 읽을 설명을 돌려준다."""
+    try:
+        r = httpx.get(
+            f"{API}/auth/me",
+            headers={"Authorization": f"Bearer {settings.service_token}"},
+            timeout=5,
+        )
+    except httpx.HTTPError:
+        return f"백엔드({API})에 연결할 수 없어요. uvicorn 이 켜져 있나요?"
+    if r.status_code == 401:
+        return (
+            "백엔드가 SERVICE_TOKEN 을 거부했어요.\n"
+            "  .env 의 값이 백엔드와 같은지, 값을 바꾼 뒤 백엔드를 재시작했는지 확인하세요.\n"
+            "  owner 계정이 하나도 없어도 이렇게 됩니다 (python -m app.manage list)."
+        )
+    if r.status_code != 200:
+        return f"백엔드 확인 실패: HTTP {r.status_code}"
+    return None
+
+
 def main() -> None:
     if not settings.telegram_bot_token:
         print(
@@ -301,6 +337,23 @@ def main() -> None:
             "  2) 발급된 토큰을 .env 의 TELEGRAM_BOT_TOKEN 에 넣기\n"
             "  3) 다시 python -m app.telegram_bot 실행"
         )
+        return
+
+    if not settings.service_token:
+        print(
+            "SERVICE_TOKEN 이 없어요. 봇은 이 토큰으로 백엔드에 인증합니다.\n"
+            "  1) 아래로 생성해 .env 에 추가\n"
+            "       echo \"SERVICE_TOKEN=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')\" >> .env\n"
+            "  2) 백엔드 재시작 (.env 는 --reload 가 감지하지 않음)\n"
+            "  3) 다시 python -m app.telegram_bot"
+        )
+        return
+
+    # 토큰이 틀리면 이후 모든 조회가 401 이 되고, _resolve_member 가 그걸
+    # '등록되지 않은 사용자'로 보이게 만든다. 엉뚱한 메시지가 나가기 전에 여기서 끊는다.
+    problem = _check_backend()
+    if problem:
+        print(problem)
         return
 
     app = Application.builder().token(settings.telegram_bot_token).build()
