@@ -10,6 +10,7 @@ import {
   PiggyBank,
   Tags,
   type LucideIcon,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +32,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { icon: PiggyBank, label: "예산 설정", desc: "카테고리별 월 예산", href: "/more/budgets" },
       { icon: Tags, label: "카테고리", desc: "지출·수입 분류 관리", href: "/more/categories" },
       { icon: Filter, label: "자동분류 규칙", desc: "가맹점 → 카테고리 규칙", href: "/more/rules" },
+      { icon: Users, label: "함께 쓰는 사람", desc: "데이트비용 공유·색 구분", href: "/more/members" },
     ],
   },
   {

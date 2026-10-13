@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, TrendingUp } from "lucide-react";
 
 import { Amount } from "@/components/amount";
+import { DateBudgetCard } from "@/components/shared/date-budget-card";
 import { TransactionList } from "@/components/spending/transaction-list";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -103,6 +104,9 @@ export default function HomePage() {
             )}
           </Card>
         </Link>
+
+        {/* 데이트비용 (공유 예산) */}
+        <DateBudgetCard month={month} />
 
         {/* 최근 거래 */}
         {!data.loading && !data.error && (

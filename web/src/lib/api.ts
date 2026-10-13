@@ -68,6 +68,7 @@ export interface Transaction {
   place_id: number | null;
   created_at: string;
   updated_at: string;
+  payer_id: number | null;
 }
 
 export interface BudgetStatus {
@@ -409,3 +410,50 @@ export const addCardBenefit = (cardId: number, payload: BenefitInput) =>
   });
 export const deleteCardBenefit = (benefitId: number) =>
   api<void>(`/cards/benefits/${benefitId}`, { method: "DELETE" });
+
+// ---------- 공유 예산 (데이트비용) ----------
+// 사람별 누적 합계는 화면에 노출하지 않는다. 색은 개별 거래 구분용으로만 쓴다.
+
+export type Member = {
+  id: number;
+  name: string;
+  telegram_chat_id: number | null;
+  is_self: boolean;
+  color: string | null;
+  active: boolean;
+};
+
+export type SharedBudgetState = "ok" | "warning" | "over" | "unknown";
+
+export type SharedBudget = {
+  month: string;
+  category_id: number;
+  category_name: string;
+  limit: number;
+  spent: number;
+  remaining: number;
+  usage: number | null;
+  usage_percent: number | null;
+  state: SharedBudgetState;
+};
+
+export const getMembers = () => api<Member[]>("/members");
+
+export const updateMember = (id: number, payload: Partial<Omit<Member, "id">>) =>
+  api<Member>(`/members/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+
+export const createMember = (payload: {
+  name: string;
+  telegram_chat_id?: number | null;
+  color?: string | null;
+  is_self?: boolean;
+}) => api<Member>("/members", { method: "POST", body: JSON.stringify(payload) });
+
+/** 공유 예산 미설정이면 백엔드가 404 → null 로 돌려준다(에러 아님). */
+export async function getSharedBudget(month: string): Promise<SharedBudget | null> {
+  try {
+    return await api<SharedBudget>(`/shared/budget?month=${month}`);
+  } catch {
+    return null;
+  }
+}
