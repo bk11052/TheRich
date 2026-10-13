@@ -1,0 +1,4 @@
+# 개발/테스트 전용. 운영 설치는 requirements.txt 만.
+-r requirements.txt
+pytest>=8
+pytest-cov>=5

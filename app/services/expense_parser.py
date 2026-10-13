@@ -65,13 +65,19 @@ _LABELS = (
     "포인트", "잔액", "주소", "전화", "사업자", "매출", "부가세", "공급가",
     "TEL", "tel", "No", "님",
 )
+# 결제앱/간편결제 브랜드명 — 스크린샷 최상단에 앱 이름이 찍히므로 가맹점으로 오인된다.
+# 라벨과 달리 부분일치로 거르면 "토스뱅크 창동점" 같은 실제 상호까지 날아가므로 줄 전체 일치만 제외.
+_APP_NAMES = frozenset({
+    "카카오페이", "카카오톡", "토스", "토스페이", "토스뱅크", "네이버페이",
+    "삼성페이", "애플페이", "페이코", "PAYCO", "제로페이", "뱅크샐러드",
+})
 
 
 def parse_receipt(text: str) -> ParsedExpense | None:
     """결제 스크린샷 OCR 텍스트(멀티라인) → 금액·가맹점 추정.
 
     금액: 'N원'/'₩N' 패턴 중 최댓값(=총액) 우선, 없으면 3자리+ 숫자 최댓값.
-    가맹점: 한글이 있고 숫자 비중이 낮으며 라벨이 아닌 첫 줄.
+    가맹점: 한글이 있고 숫자 비중이 낮으며 라벨/결제앱명이 아닌 첫 줄.
     """
     if not text:
         return None
@@ -96,6 +102,8 @@ def parse_receipt(text: str) -> ParsedExpense | None:
         if not _HANGUL.search(ln):
             continue
         if any(lb in ln for lb in _LABELS):
+            continue
+        if ln in _APP_NAMES:
             continue
         digits = sum(c.isdigit() for c in ln)
         if digits > len(ln) // 2:
